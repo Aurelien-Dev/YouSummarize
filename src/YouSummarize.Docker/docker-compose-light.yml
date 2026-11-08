@@ -1,0 +1,8 @@
+services:
+  yousummarize:
+    extends:
+      file: docker-compose.yml
+      service: yousummarize
+networks:
+  testnet:
+    external: true

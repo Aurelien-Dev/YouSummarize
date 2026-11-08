@@ -1,0 +1,70 @@
+@using YouSummarize.Dto.Models
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(Category?.Id > 0 ? "Modifier la catégorie" : "Créer une catégorie")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="form" @bind-IsValid="@isValid">
+            <MudTextField @bind-Value="Category.Name" 
+                          Label="Nom de la catégorie" 
+                          Variant="Variant.Outlined"
+                          Required="true"
+                          RequiredError="Le nom est obligatoire"
+                          MaxLength="200"
+                          Counter="200"
+                          Immediate="true"
+                          Class="mb-4" />
+
+            <MudTextField @bind-Value="Category.Color" 
+                          Label="Couleur (optionnelle)" 
+                          Variant="Variant.Outlined"
+                          Placeholder="#1976d2 ou red, blue..."
+                          HelperText="Format: #RRGGBB ou nom de couleur CSS"
+                          MaxLength="20"
+                          Class="mb-4" />
+
+            @if (!string.IsNullOrWhiteSpace(Category.Color))
+            {
+                <MudPaper Elevation="0" Class="pa-3 mb-4" Style="@($"background-color: {Category.Color}30; border: 2px solid {Category.Color};")">
+                    <MudText Typo="Typo.body2" Style="@($"color: {Category.Color};")">
+                        Aperçu de la couleur
+                    </MudText>
+                </MudPaper>
+            }
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Annuler</MudButton>
+        <MudButton Color="Color.Primary" 
+                   Variant="Variant.Filled" 
+                   OnClick="Submit"
+                   Disabled="@(!isValid)">
+            @(Category?.Id > 0 ? "Modifier" : "Créer")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public CategoryDto Category { get; set; } = new() { Name = "" };
+
+    private MudForm form = default!;
+    private bool isValid;
+
+    protected override void OnInitialized()
+    {
+        Category ??= new CategoryDto { Name = "" };
+    }
+
+    private void Submit()
+    {
+        if (isValid)
+        {
+            MudDialog.Close(DialogResult.Ok(Category));
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

@@ -1,0 +1,143 @@
+@page "/profile"
+@* PAS de @rendermode = Static Server-Side Rendering (SSR) *@
+@attribute [Authorize]
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using global::YouSummarize.Data
+
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager NavigationManager
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>Mon profil | YouSummarize</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+    <MudPaper Elevation="4" Class="pa-8">
+        <MudStack Spacing="4">
+            <MudText Typo="Typo.h4" Align="Align.Center">Mon profil</MudText>
+
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <MudAlert Severity="Severity.Success">@successMessage</MudAlert>
+            }
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <MudAlert Severity="Severity.Error">@errorMessage</MudAlert>
+            }
+
+            @if (user != null)
+            {
+                @* Formulaire HTML pour la mise à jour du profil *@
+                <form method="post" action="/auth/update-profile">
+                    <MudStack Spacing="3">
+                        <MudTextField @bind-Value="accountNameValue" 
+                                      Label="Nom d'affichage" 
+                                      Variant="Variant.Outlined"
+                                      HelperText="Ce nom sera visible sur votre profil" />
+                        <input type="hidden" name="accountName" value="@accountNameValue" />
+
+                        <MudTextField Value="@username" 
+                                      Label="Nom d'utilisateur" 
+                                      Variant="Variant.Outlined"
+                                      Disabled="true"
+                                      HelperText="Le nom d'utilisateur ne peut pas être modifié" />
+
+                        <MudTextField Value="@email" 
+                                      Label="Email" 
+                                      Variant="Variant.Outlined"
+                                      Disabled="true"
+                                      HelperText="L'email ne peut pas être modifié" />
+
+                        <MudTextField @bind-Value="phoneNumberValue" 
+                                      Label="Numéro de téléphone" 
+                                      Variant="Variant.Outlined"
+                                      HelperText="Format optionnel"
+                                      InputType="InputType.Telephone" />
+                        <input type="hidden" name="phoneNumber" value="@phoneNumberValue" />
+
+                        <MudButton ButtonType="ButtonType.Submit" 
+                                   Variant="Variant.Filled" 
+                                   Color="Color.Primary" 
+                                   FullWidth="true"
+                                   Size="Size.Large"
+                                   HtmlTag="button">
+                            Enregistrer les modifications
+                        </MudButton>
+                    </MudStack>
+                </form>
+
+                <MudDivider Class="my-4" />
+
+                <MudButton Variant="Variant.Outlined" 
+                           Color="Color.Default"
+                           Href="/"
+                           FullWidth="true">
+                    Retour à l'accueil
+                </MudButton>
+            }
+            else
+            {
+                <MudProgressCircular Indeterminate="true" />
+                <MudText Align="Align.Center">Chargement...</MudText>
+            }
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private ApplicationUser? user;
+    private string? username;
+    private string? email;
+    private string accountNameValue = "";
+    private string phoneNumberValue = "";
+    private string? successMessage;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Récupérer HttpContext via IHttpContextAccessor
+        var httpContext = HttpContextAccessor.HttpContext;
+
+        if (httpContext == null)
+        {
+            errorMessage = "❌ Impossible de récupérer le contexte HTTP";
+            return;
+        }
+
+        // Récupérer l'utilisateur actuel
+        user = await UserManager.GetUserAsync(httpContext.User);
+
+        if (user != null)
+        {
+            username = await UserManager.GetUserNameAsync(user);
+            email = await UserManager.GetEmailAsync(user);
+            accountNameValue = user.AccountName ?? "";
+            phoneNumberValue = await UserManager.GetPhoneNumberAsync(user) ?? "";
+        }
+
+        // Récupérer les paramètres de query string pour afficher les messages
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+        var success = queryParams["success"];
+        var error = queryParams["error"];
+
+        if (!string.IsNullOrEmpty(success))
+        {
+            successMessage = "✅ Votre profil a été mis à jour avec succès";
+        }
+
+        if (!string.IsNullOrEmpty(error))
+        {
+            errorMessage = error switch
+            {
+                "notfound" => "❌ Utilisateur non trouvé",
+                "update" => "❌ Échec de la mise à jour du profil",
+                "server" => "❌ Une erreur serveur s'est produite",
+                _ => "❌ Une erreur est survenue"
+            };
+        }
+    }
+}

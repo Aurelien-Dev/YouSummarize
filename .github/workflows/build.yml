@@ -1,0 +1,22 @@
+name: Build YouSummarize
+
+on:
+  push:
+    branches: [main]
+    paths: ['src/**', '.github/workflows/build.yml']
+  pull_request:
+    paths: ['src/**', '.github/workflows/build.yml']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build
+        run: dotnet build src/YouSummarize/YouSummarize.csproj -c Release
+      - name: Publish
+        run: dotnet publish src/YouSummarize/YouSummarize.csproj -c Release --no-build -o publish

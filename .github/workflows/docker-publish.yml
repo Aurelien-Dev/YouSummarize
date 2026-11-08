@@ -1,0 +1,53 @@
+name: Deploy YouSummarize to VPS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Prepare application folder
+        uses: appleboy/ssh-action@v0.1.5
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          script: |
+            mkdir -p /home/yousummarize
+            rm -rf /home/yousummarize/src
+      - name: Copy files via SSH
+        uses: appleboy/scp-action@v0.1.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          source: "."
+          target: /home/yousummarize/
+      - name: Deploy separate application container
+        uses: appleboy/ssh-action@v0.1.5
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          script: |
+            cd /home/yousummarize/src
+            umask 077
+            cat > .env <<'ENV'
+            OPENAI_SECRET=${{ secrets.OPENAI_SECRET }}
+            DEEPSEEK_SECRET=${{ secrets.DEEPSEEK_SECRET }}
+            EMAIL_BACKUP_DEST=${{ vars.EMAIL_BACKUP_DEST }}
+            EMAIL_BACKUP_FROM=${{ vars.EMAIL_BACKUP_FROM }}
+            DB_HOST_URL=${{ vars.DB_HOST_URL }}
+            DB_HOST_PORT=${{ vars.DB_HOST_PORT }}
+            DB_DATABASE=${{ vars.DB_DATABASE }}
+            DB_USERNAME=${{ vars.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+            SUPADATA_API_KEY=${{ secrets.SUPADATA_API_KEY }}
+            APPROVAL_TOKEN_SECRET=${{ secrets.APPROVAL_TOKEN_SECRET }}
+            YTDLP_COOKIES=${{ secrets.YTDLP_COOKIES }}
+            ENV
+            docker compose --project-name yousummarize -f YouSummarize.Docker/docker-compose-light.yml --env-file .env up --build -d

@@ -1,0 +1,63 @@
+@inherits LayoutComponentBase
+@using YouSummarize.Components.Shared
+@using YouSummarize.Managers
+
+<MudThemeProvider @ref="_mudThemeProvider" Theme="_themeManager.Theme" @bind-IsDarkMode="@_isDarkMode" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
+
+<MudLayout>
+    @* Header *@
+    <MudAppBar Elevation="0" Dense="true" Fixed="false">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-grow-1">
+            @* Logo / Branding *@
+            <MudIcon Icon="@Icons.Custom.Brands.YouTube" Color="Color.Error" Size="Size.Large" />
+            <MudText Typo="Typo.h6">YouSummarize</MudText>
+
+            <MudSpacer />
+
+            @* Actions *@
+            <AuthorizeView Roles="Admin">
+                <MudIconButton Href="/travelplanner/admin" Color="Color.Default" Variant="Variant.Text" Icon="@Icons.Material.Filled.Settings" />
+            </AuthorizeView>
+
+            <MudIconButton Icon="@Icons.Material.Filled.AccountCircle" Href="/profile" Color="Color.Default"
+                           Size="Size.Medium" title="Mon profil" />
+            <MudThemeManagerButton OnClick="@((e) => OpenThemeManager(true))" />
+            <LogoutButton />
+        </MudStack>
+    </MudAppBar>
+
+    @* Layout principal avec contenu *@
+    <MudMainContent Style="padding: 0;">
+        @Body
+    </MudMainContent>
+
+    <MudThemeManager Open="_themeManagerOpen" OpenChanged="OpenThemeManager" Theme="_themeManager" ThemeChanged="UpdateTheme" IsDarkMode="@_isDarkMode" />
+</MudLayout>
+
+@code {
+    private bool _isDarkMode = false;
+    private MudThemeProvider? _mudThemeProvider;
+    private ThemeManagerTheme _themeManager = new ThemeManagerTheme();
+    private bool _themeManagerOpen = false;
+
+    protected override void OnInitialized()
+    {
+        // Initialize theme with CustomThemeManager.TravelPlannerTheme
+        _themeManager.Theme = CustomThemeManager.TravelPlannerTheme;
+        StateHasChanged();
+    }
+
+    void OpenThemeManager(bool value)
+    {
+        _themeManagerOpen = value;
+    }
+
+    void UpdateTheme(ThemeManagerTheme value)
+    {
+        _themeManager = value;
+        StateHasChanged();
+    }
+}

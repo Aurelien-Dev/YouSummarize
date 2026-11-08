@@ -1,0 +1,92 @@
+@page "/approval-error"
+@attribute [AllowAnonymous]
+
+<PageTitle>Erreur d'Approbation | YouSummarize</PageTitle>
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    <MudPaper Elevation="3" Class="pa-8" Style="text-align: center;">
+        <MudIcon Icon="@Icons.Material.Filled.Error" Color="Color.Error" Size="Size.Large" Style="font-size: 5rem;" />
+
+        <MudText Typo="Typo.h4" Class="mt-4 mb-2" Color="Color.Error">
+            ❌ Erreur d'Approbation
+        </MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-4">
+            @GetErrorMessage()
+        </MudText>
+
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="my-4">
+            @GetErrorDetails()
+        </MudAlert>
+
+        <MudDivider Class="my-4" />
+
+        <MudButton Href="/" 
+                   Variant="Variant.Filled" 
+                   Color="Color.Primary" 
+                   Size="Size.Large"
+                   StartIcon="@Icons.Material.Filled.Home">
+            Retour à l'accueil
+        </MudButton>
+
+        <MudButton Href="/admin" 
+                   Variant="Variant.Text" 
+                   Color="Color.Default" 
+                   Size="Size.Medium"
+                   Class="mt-2"
+                   StartIcon="@Icons.Material.Filled.Settings">
+            Gérer les utilisateurs
+        </MudButton>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [SupplyParameterFromQuery(Name = "reason")]
+    public string? Reason { get; set; }
+
+    private string GetErrorMessage()
+    {
+        return Reason switch
+        {
+            "missing-token" => "Le lien d'approbation est incomplet (token manquant).",
+            "invalid-expires" => "Le lien d'approbation est invalide (paramètre d'expiration incorrect).",
+            "user-not-found" => "L'utilisateur demandé n'existe pas.",
+            "no-pending-token" => "Aucun token d'approbation en attente pour cet utilisateur.",
+            "token-mismatch" => "Le token fourni ne correspond pas à celui attendu.",
+            "token-already-used" => "Ce lien d'approbation a déjà été utilisé.",
+            "invalid-token" => "Le token est invalide ou a expiré (valide 7 jours).",
+            "role-assignment-failed" => "Erreur lors de l'attribution du rôle à l'utilisateur.",
+            "server-error" => "Une erreur serveur s'est produite lors de l'approbation.",
+            _ => "Une erreur inconnue s'est produite lors de l'approbation."
+        };
+    }
+
+    private string GetErrorDetails()
+    {
+        return Reason switch
+        {
+            "missing-token" or "invalid-expires" or "token-mismatch" or "invalid-token" => 
+                "Le lien d'approbation est peut-être corrompu. Veuillez utiliser le lien complet reçu par email.",
+
+            "token-already-used" => 
+                "L'utilisateur a probablement déjà été approuvé. Vérifiez la liste des utilisateurs dans l'administration.",
+
+            "user-not-found" => 
+                "L'utilisateur a peut-être été supprimé. Contactez l'administrateur système.",
+
+            "no-pending-token" => 
+                "L'utilisateur n'est peut-être pas en attente d'approbation ou le compte a déjà été traité.",
+
+            "role-assignment-failed" => 
+                "Erreur technique lors de l'attribution des droits. Contactez l'administrateur système.",
+
+            "server-error" => 
+                "Une erreur technique s'est produite. Veuillez réessayer plus tard ou contacter l'administrateur.",
+
+            _ => "Veuillez contacter l'administrateur pour plus d'informations."
+        };
+    }
+}

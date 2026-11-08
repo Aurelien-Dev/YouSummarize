@@ -1,0 +1,32 @@
+@inject IJSRuntime JSRuntime
+
+@* Formulaire HTML invisible pour le logout *@
+<form @ref="logoutForm" method="post" action="/auth/logout" style="display: none;">
+    <button type="submit" id="logout-submit"></button>
+</form>
+
+<MudIconButton OnClick="HandleLogout" 
+               Color="Color.Inherit" 
+               Variant="Variant.Text" 
+               Icon="@Icons.Material.Filled.Logout"
+               Title="Se déconnecter" />
+
+@code {
+    private ElementReference logoutForm;
+
+    private async Task HandleLogout()
+    {
+        try
+        {
+            // Soumettre le formulaire HTML via JavaScript
+            // Cela fera un POST HTTP classique vers /auth/logout
+            await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('logout-submit').click()");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur lors du logout: {ex.Message}");
+            // Fallback: redirection vers la page de logout
+            await JSRuntime.InvokeVoidAsync("eval", "window.location.href = '/logout'");
+        }
+    }
+}

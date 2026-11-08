@@ -1,0 +1,193 @@
+@page "/travelplanner/admin"
+@attribute [Authorize(Roles = "Admin")]
+@layout YouSummarize.Components.Layout.TravelPlannerAdminLayout
+@using Microsoft.AspNetCore.Authorization
+@inject ISummaryService SummaryService
+@inject ITravelRepository TravelRepository
+@inject ICategoryRepository CategoryRepository
+@inject NavigationManager NavigationManager
+
+<PageTitle>YouSummarize - Dashboard</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-8">
+    <MudText Typo="Typo.h3" Class="mb-6" Style="font-weight: 600;">
+        <MudIcon Icon="@Icons.Material.Filled.Dashboard" Class="mr-2" /> Dashboard
+    </MudText>
+
+    @if (_isLoading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    }
+    else
+    {
+        <!-- Statistics Cards -->
+        <MudGrid Class="mb-6">
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Elevation="2">
+                    <MudCardContent>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <div>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Total Summaries</MudText>
+                                <MudText Typo="Typo.h4" Style="font-weight: 600;">@_totalSummaries</MudText>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.Summarize" Size="Size.Large" Color="Color.Primary" />
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Elevation="2">
+                    <MudCardContent>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <div>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Travels</MudText>
+                                <MudText Typo="Typo.h4" Style="font-weight: 600;">@_totalTravels</MudText>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.FlightTakeoff" Size="Size.Large" Color="Color.Info" />
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Elevation="2">
+                    <MudCardContent>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <div>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Categories</MudText>
+                                <MudText Typo="Typo.h4" Style="font-weight: 600;">@_totalCategories</MudText>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.Category" Size="Size.Large" Color="Color.Success" />
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            </MudGrid>
+
+            <!-- Navigation Cards -->
+        <MudText Typo="Typo.h5" Class="mb-4" Style="font-weight: 500;">Quick Actions</MudText>
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="4">
+                <MudCard Elevation="3" Style="cursor: pointer; transition: transform 0.2s;" 
+                         @onclick="@(() => NavigationManager.NavigateTo("/travelplanner"))">
+                    <MudCardContent>
+                        <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                            <MudIcon Icon="@Icons.Material.Filled.Summarize" Size="Size.Large" Color="Color.Primary" />
+                            <MudText Typo="Typo.h6" Align="Align.Center" Style="font-weight: 600;">
+                                Summaries
+                            </MudText>
+                            <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
+                                View and manage all your content summaries
+                            </MudText>
+                        </MudStack>
+                    </MudCardContent>
+                    <MudCardActions Class="justify-center">
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward">
+                            View All
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudCard Elevation="3" Style="cursor: pointer; transition: transform 0.2s;" 
+                         @onclick="@(() => NavigationManager.NavigateTo("/travelplanner/admin/travels"))">
+                    <MudCardContent>
+                        <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                            <MudIcon Icon="@Icons.Material.Filled.FlightTakeoff" Size="Size.Large" Color="Color.Info" />
+                            <MudText Typo="Typo.h6" Align="Align.Center" Style="font-weight: 600;">
+                                Travels
+                            </MudText>
+                            <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
+                                Organize summaries by travel or project
+                            </MudText>
+                        </MudStack>
+                    </MudCardContent>
+                    <MudCardActions Class="justify-center">
+                        <MudButton Variant="Variant.Text" Color="Color.Info" EndIcon="@Icons.Material.Filled.ArrowForward">
+                            Manage
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudCard Elevation="3" Style="cursor: pointer; transition: transform 0.2s;" 
+                         @onclick="@(() => NavigationManager.NavigateTo("/travelplanner/admin/categories"))">
+                    <MudCardContent>
+                        <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                            <MudIcon Icon="@Icons.Material.Filled.Category" Size="Size.Large" Color="Color.Success" />
+                            <MudText Typo="Typo.h6" Align="Align.Center" Style="font-weight: 600;">
+                                Categories
+                            </MudText>
+                            <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
+                                Tag and categorize your summaries
+                            </MudText>
+                        </MudStack>
+                    </MudCardContent>
+                    <MudCardActions Class="justify-center">
+                        <MudButton Variant="Variant.Text" Color="Color.Success" EndIcon="@Icons.Material.Filled.ArrowForward">
+                            Manage
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+
+        <!-- Create New Summary Card -->
+        <MudCard Elevation="4" Class="mt-6" Style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <MudCardContent>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <div>
+                        <MudText Typo="Typo.h5" Style="color: white; font-weight: 600;">
+                            Create New Summary
+                        </MudText>
+                        <MudText Typo="Typo.body1" Style="color: rgba(255,255,255,0.9);">
+                            Add a new YouTube video to generate a summary
+                        </MudText>
+                    </div>
+                    <MudButton Variant="Variant.Filled" 
+                               Color="Color.Surface" 
+                               Size="Size.Large"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="@(() => NavigationManager.NavigateTo("/travelplanner/summaries/new"))">
+                        Create Summary
+                    </MudButton>
+                </MudStack>
+            </MudCardContent>
+        </MudCard>
+    }
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private int _totalSummaries = 0;
+    private int _totalTravels = 0;
+    private int _totalCategories = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Load statistics
+            var summaries = await SummaryService.GetAllSummaries();
+            _totalSummaries = summaries.Count;
+
+            var travels = await TravelRepository.GetAll();
+            _totalTravels = travels.Count;
+
+            var categories = await CategoryRepository.GetAll();
+            _totalCategories = categories.Count;
+        }
+        catch (Exception)
+        {
+            // Handle error silently for now
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

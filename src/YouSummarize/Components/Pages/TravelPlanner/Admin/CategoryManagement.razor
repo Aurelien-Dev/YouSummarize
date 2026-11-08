@@ -1,0 +1,204 @@
+@page "/travelplanner/admin/categories"
+@attribute [Authorize(Roles = "Admin")]
+@layout global::YouSummarize.Components.Layout.TravelPlannerAdminLayout
+@using Microsoft.AspNetCore.Authorization
+@inject ICategoryRepository CategoryRepository
+@inject ISummaryService SummaryService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>YouSummarize - Categories</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-8">
+    <MudStack Spacing="4">
+        <!-- Header -->
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.h3" Style="font-weight: 600;">
+                <MudIcon Icon="@Icons.Material.Filled.Category" Class="mr-2" /> Categories
+            </MudText>
+            <MudButton Variant="Variant.Filled" 
+                       Color="Color.Primary" 
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenAddDialog">
+                New Category
+            </MudButton>
+        </MudStack>
+
+        @if (_isLoading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        }
+        else
+        {
+            <!-- Categories Table -->
+            <MudTable Items="@_categories" 
+                      Hover="true" 
+                      Breakpoint="Breakpoint.Sm"
+                      Dense="false"
+                      Elevation="2">
+                <HeaderContent>
+                    <MudTh>Color</MudTh>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Usage Count</MudTh>
+                    <MudTh>Created</MudTh>
+                    <MudTh>Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Color">
+                        <MudChip T="string" Size="Size.Small" 
+                                 Style="@($"background-color: {context.Color ?? "#e0e0e0"}; width: 80px;")">
+                            &nbsp;
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Name">
+                        <MudText Typo="Typo.body2" Style="font-weight: 500;">@context.Name</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Usage Count">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info">@GetUsageCount(context.Id)</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Created">
+                        <MudText Typo="Typo.caption">@context.CreatedDate.ToString("MMM dd, yyyy")</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Actions">
+                        <MudStack Row="true" Spacing="1">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                           Size="Size.Small" 
+                                           Color="Color.Primary"
+                                           OnClick="@(() => OpenEditDialog(context))"
+                                           Title="Edit" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                           Size="Size.Small" 
+                                           Color="Color.Error"
+                                           OnClick="@(() => DeleteCategory(context))"
+                                           Title="Delete" />
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body1" Align="Align.Center" Class="py-8">
+                        No categories found. Create your first category!
+                    </MudText>
+                </NoRecordsContent>
+            </MudTable>
+
+            <!-- Info Card -->
+            <MudCard Elevation="1" Style="background-color: #e3f2fd;">
+                <MudCardContent>
+                    <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.Info" Color="Color.Info" />
+                        <div>
+                            <MudText Typo="Typo.body2" Style="font-weight: 500;">About Categories</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                Categories help you organize and classify your summaries by topic, theme, or any classification system you prefer.
+                                You can assign multiple categories to each summary for flexible organization.
+                            </MudText>
+                        </div>
+                    </MudStack>
+                </MudCardContent>
+            </MudCard>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private List<CategoryDto> _categories = new();
+    private List<YoutubeResumeDto> _summaries = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            _categories = await CategoryRepository.GetAll();
+            _summaries = await SummaryService.GetAllSummaries();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private int GetUsageCount(int categoryId)
+    {
+        return _summaries.Count(s => s.CategoryIds.Contains(categoryId));
+    }
+
+    private async Task OpenAddDialog()
+    {
+        var parameters = new DialogParameters
+        {
+            { "Category", new CategoryDto { Name = "", Color = "#2196F3" } }
+        };
+
+        var dialog = await DialogService.ShowAsync<YouSummarize.Components.Pages.TravelPlanner.Dialogs.CategoryDialog>("New Category", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is CategoryDto category)
+        {
+            var added = await CategoryRepository.Add(category);
+            _categories.Add(added);
+            Snackbar.Add("Category created successfully", Severity.Success);
+        }
+    }
+
+    private async Task OpenEditDialog(CategoryDto category)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Category", new CategoryDto { Id = category.Id, Name = category.Name, Color = category.Color } }
+        };
+
+        var dialog = await DialogService.ShowAsync<YouSummarize.Components.Pages.TravelPlanner.Dialogs.CategoryDialog>("Edit Category", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is CategoryDto updatedCategory)
+        {
+            var success = await CategoryRepository.Update(updatedCategory);
+            if (success)
+            {
+                var index = _categories.FindIndex(c => c.Id == updatedCategory.Id);
+                if (index >= 0)
+                {
+                    _categories[index] = updatedCategory;
+                }
+                Snackbar.Add("Category updated successfully", Severity.Success);
+            }
+        }
+    }
+
+    private async Task DeleteCategory(CategoryDto category)
+    {
+        var usageCount = GetUsageCount(category.Id);
+        var message = usageCount > 0
+            ? $"This category is used by {usageCount} summaries. Deleting it will remove the category from all these summaries. Are you sure?"
+            : "Are you sure you want to delete this category?";
+
+        var parameters = new DialogParameters
+        {
+            { "Title", "Delete Category" },
+            { "Message", message },
+            { "ConfirmText", "Delete" },
+            { "CancelText", "Cancel" }
+        };
+
+        var dialog = await DialogService.ShowAsync<YouSummarize.Components.Shared.Dialogs.ConfirmationDialog>("", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            var success = await CategoryRepository.Delete(category.Id);
+            if (success)
+            {
+                _categories.Remove(category);
+                Snackbar.Add("Category deleted successfully", Severity.Success);
+                await LoadData(); // Reload to refresh usage counts
+            }
+        }
+    }
+}

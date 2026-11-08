@@ -1,0 +1,639 @@
+@page "/"
+@page "/travelplanner"
+@attribute [Authorize]
+@layout TravelPlannerLayout
+@using Microsoft.AspNetCore.Authorization
+@using YouSummarize.Components.Pages.TravelPlanner.Dialogs
+@using YouSummarize.Components.Layout
+@using YouSummarize.Components.Pages.TravelPlanner.TravelPlannerPageComponents
+
+<PageTitle>YouSummarize | YouSummarize</PageTitle>
+
+@* Structure flex avec sidebar + contenu *@
+<div class="d-flex" style="height: calc(100vh - 64px); overflow: hidden;">
+    @* Sidebar gauche avec scroll indépendant *@
+    <MudPaper Elevation="1" Square="true" Class="overflow-y-auto" Style="width: 280px; min-width: 280px;">
+        <TravelSidebar Travels="@travels"
+                       Categories="@categories"
+                       SummariesCount="@summariesCountByTravel"
+                       CategoryCounts="@GetContextualCategoryCounts()"
+                       StatusCounts="@GetContextualStatusCounts()"
+                       TotalCount="@ytResume.Count"
+                       UnclassifiedCount="@GetUnclassifiedCount()"
+                       SelectedTravelId="@selectedTravelId"
+                       SelectedFilterType="@selectedFilterType"
+                       SelectedCategoryIds="@selectedCategoryIds"
+                       SelectedStatuses="@selectedStatuses"
+                       OnFilterChanged="@HandleFilterChanged"
+                       OnCategoryFiltersChanged="@HandleCategoryFiltersChanged"
+                       OnStatusFiltersChanged="@HandleStatusFiltersChanged"
+                       OnCreateTravelClicked="@OpenCreateTravelDialog"
+                       OnEditTravelClicked="@OpenEditTravelDialog"
+                       OnCreateCategoryClicked="@OpenCreateCategoryDialog" />
+    </MudPaper>
+
+    @* Zone de contenu principale avec scroll indépendant *@
+    <div class="flex-grow-1 overflow-y-auto">
+        <MudContainer MaxWidth="MaxWidth.False" Class="pa-6">
+            @* <MudText Typo="Typo.h4" GutterBottom="true" Style="font-weight: 600; color: #1a1a1a;">
+                Résumés de vidéos YouTube
+            </MudText> *@
+
+            @* Formulaire de création de résumé *@
+            <MudPaper Elevation="0" Class="mb-4 pa-4">
+                <MudText Typo="Typo.h6" Class="mb-4">Créer un nouveau résumé</MudText>
+                <MudGrid Spacing="3">
+                    <MudItem xs="12" md="6">
+                        <MudTextField @bind-Value="currentUrl"
+                                      Label="URL de la vidéo YouTube"
+                                      Variant="Variant.Outlined"
+                                      Placeholder="https://www.youtube.com/watch?v=..."
+                                      Disabled="@isProcessing"
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Custom.Brands.YouTube"
+                                      AdornmentColor="Color.Error" />
+                    </MudItem>
+                    <MudItem xs="12" md="3">
+                        <MudSelect T="int?"
+                                   @bind-Value="selectedTravelIdForCreation"
+                                   Label="Ajouter au voyage (optionnel)"
+                                   Variant="Variant.Outlined"
+                                   Clearable="true"
+                                   Disabled="@isProcessing">
+                            <MudSelectItem T="int?" Value="@((int?)null)">Non classé</MudSelectItem>
+                            @foreach (var travel in travels.Where(t => !t.IsArchived).OrderBy(t => t.Name))
+                            {
+                                <MudSelectItem T="int?" Value="@((int?)travel.Id)">@travel.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" md="3" Class="d-flex align-center">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Disabled="@(isProcessing)"
+                                   OnClick="ProcessYoutubeUrl"
+                                   StartIcon="@Icons.Material.Filled.AutoAwesome">
+                            @if (isProcessing)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <span>Traitement...</span>
+                            }
+                            else
+                            {
+                                <span>Générer le résumé</span>
+                            }
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            @* Layout 2 colonnes : Liste + Détail *@
+            <MudGrid Spacing="3">
+                @* Colonne centrale : Liste des résumés avec recherche *@
+                <MudItem xs="12" md="5">
+                    <VideoSummaryList FilteredSummaries="@filteredSummaries"
+                                      SelectedSummaryId="@CurrentResume?.Id"
+                                      SearchText="@searchText"
+                                      OnSearchChanged="@HandleSearchChanged"
+                                      OnSummarySelected="@HandleSummarySelected"
+                                      OnDeleteSummaryClicked="@DeleteSummaryWithConfirmation" />
+                </MudItem>
+
+                @* Panneau de détail à droite *@
+                <MudItem xs="12" md="7">
+                    <VideoSummaryDetail Summary="@CurrentResume"
+                                        Travels="@travels"
+                                        Categories="@categories"
+                                        OnTravelChanged="@UpdateSummaryTravel"
+                                        OnStatusChanged="@UpdateSummaryStatus"
+                                        OnCategoriesChanged="@UpdateSummaryCategories"
+                                        OnTitleChanged="@UpdateSummaryTitle"
+                                        OnDeleteClicked="@DeleteSummaryWithConfirmation" />
+                </MudItem>
+            </MudGrid>
+
+            @* Overlay de chargement *@
+            @if (isProcessing)
+            {
+                <MudOverlay Visible="true" DarkBackground="true" ZIndex="9999">
+                    <MudPaper Elevation="8" Class="pa-8">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="4">
+                            <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+                            <MudText Typo="Typo.h6">@processingMessage</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Veuillez patienter...</MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudOverlay>
+            }
+        </MudContainer>
+    </div>
+</div>
+
+@code {
+    [Inject] IYoutubeRepository youtubeRepository { get; set; } = null!;
+    [Inject] ITravelRepository travelRepository { get; set; } = null!;
+    [Inject] ICategoryRepository categoryRepository { get; set; } = null!;
+    [Inject] YouSummarize.Services.TravelPlanner.ISummaryService summaryService { get; set; } = null!;
+    [Inject] ISnackbar Snackbar { get; set; } = null!;
+    [Inject] IDialogService DialogService { get; set; } = null!;
+
+    private List<YoutubeResumeDto> ytResume { get; set; } = [];
+    private List<YoutubeResumeDto> baseSummaries { get; set; } = [];
+    private List<YoutubeResumeDto> filteredSummaries { get; set; } = [];
+    private List<TravelDto> travels { get; set; } = [];
+    private List<CategoryDto> categories { get; set; } = [];
+    private Dictionary<int, int> summariesCountByTravel { get; set; } = new();
+    private Dictionary<int, int> summariesCountByCategory { get; set; } = new();
+    private Dictionary<SummaryStatus, int> summariesCountByStatus { get; set; } = new();
+
+    private YoutubeResumeDto? CurrentResume { get; set; }
+    private bool isProcessing { get; set; } = false;
+    private string currentUrl { get; set; } = string.Empty;
+    private string processingMessage { get; set; } = string.Empty;
+    private string searchText { get; set; } = string.Empty;
+
+    private int? selectedTravelId { get; set; }
+    private string selectedFilterType { get; set; } = "all";
+    private int? selectedTravelIdForCreation { get; set; }
+
+    // V2 Filter states
+    private HashSet<int> selectedCategoryIds { get; set; } = new();
+    private HashSet<SummaryStatus> selectedStatuses { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        ytResume = await youtubeRepository.GetAllSummary();
+        travels = await travelRepository.GetAll();
+        categories = await categoryRepository.GetAll();
+        summariesCountByTravel = await travelRepository.GetSummariesCountByTravel();
+        summariesCountByCategory = await categoryRepository.GetSummariesCountByCategory();
+
+        // Calculate status counts
+        summariesCountByStatus = ytResume
+            .GroupBy(s => s.Status)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        // ÉTAPE 1 : Filtrage primaire (contexte de base pour les compteurs)
+        var baseQuery = ytResume.AsEnumerable();
+
+        // Filtrer par voyage
+        if (selectedFilterType == "travel" && selectedTravelId.HasValue)
+        {
+            baseQuery = baseQuery.Where(s => s.TravelId == selectedTravelId.Value);
+        }
+        else if (selectedFilterType == "unclassified")
+        {
+            baseQuery = baseQuery.Where(s => s.TravelId == null);
+        }
+        else if (selectedFilterType == "archived")
+        {
+            var archivedTravelIds = travels.Where(t => t.IsArchived).Select(t => t.Id).ToList();
+            baseQuery = baseQuery.Where(s => s.TravelId.HasValue && archivedTravelIds.Contains(s.TravelId.Value));
+        }
+
+        // Stocker les résumés de base (après filtrage primaire)
+        baseSummaries = baseQuery.ToList();
+
+        // ÉTAPE 2 : Filtrage secondaire (à partir de baseSummaries)
+        var query = baseSummaries.AsEnumerable();
+
+        // V2 Filters
+        if (selectedCategoryIds.Any())
+        {
+            query = query.Where(s => s.CategoryIds.Any(catId => selectedCategoryIds.Contains(catId)));
+        }
+
+        if (selectedStatuses.Any())
+        {
+            query = query.Where(s => selectedStatuses.Contains(s.Status));
+        }
+
+        // Recherche textuelle
+        if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            query = query.Where(s =>
+                s.Title.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                s.Resume.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+        }
+
+        filteredSummaries = query.ToList();
+
+        // Gérer la sélection automatique
+        if (CurrentResume != null && !filteredSummaries.Any(s => s.Id == CurrentResume.Id))
+        {
+            CurrentResume = filteredSummaries.FirstOrDefault();
+        }
+        else if (CurrentResume == null && filteredSummaries.Any())
+        {
+            CurrentResume = filteredSummaries.OrderByDescending(s => s.CreatedDate).First();
+        }
+    }
+
+    private int GetUnclassifiedCount()
+    {
+        return ytResume.Count(s => s.TravelId == null);
+    }
+
+    private Dictionary<SummaryStatus, int> GetContextualStatusCounts()
+    {
+        return baseSummaries
+            .GroupBy(s => s.Status)
+            .ToDictionary(g => g.Key, g => g.Count());
+    }
+
+    private Dictionary<int, int> GetContextualCategoryCounts()
+    {
+        return baseSummaries
+            .SelectMany(s => s.CategoryIds.Select(catId => catId))
+            .GroupBy(catId => catId)
+            .ToDictionary(g => g.Key, g => g.Count());
+    }
+
+    private void HandleFilterChanged((int? travelId, string filterType) filter)
+    {
+        selectedTravelId = filter.travelId;
+        selectedFilterType = filter.filterType;
+        ApplyFilters();
+    }
+
+    private void HandleCategoryFiltersChanged(HashSet<int> categoryIds)
+    {
+        selectedCategoryIds = categoryIds;
+        ApplyFilters();
+    }
+
+    private void HandleStatusFiltersChanged(HashSet<SummaryStatus> statuses)
+    {
+        selectedStatuses = statuses;
+        ApplyFilters();
+    }
+
+    private void HandleSearchChanged(string search)
+    {
+        searchText = search;
+        ApplyFilters();
+    }
+
+    private void HandleSummarySelected(YoutubeResumeDto summary)
+    {
+        CurrentResume = summary;
+    }
+
+    private async Task UpdateSummaryStatus((YoutubeResumeDto summary, SummaryStatus status) data)
+    {
+        try
+        {
+            var success = await youtubeRepository.UpdateStatus(data.summary.Id, data.status);
+
+            if (success)
+            {
+                // Update local data
+                data.summary.Status = data.status;
+                var summaryInList = ytResume.FirstOrDefault(s => s.Id == data.summary.Id);
+                if (summaryInList != null)
+                {
+                    summaryInList.Status = data.status;
+                }
+
+                // Reapply filters
+                var wasCurrentlySelected = CurrentResume?.Id == data.summary.Id;
+                ApplyFilters();
+
+                // If the item was removed from filtered list, select next
+                if (wasCurrentlySelected && !filteredSummaries.Any(s => s.Id == data.summary.Id))
+                {
+                    CurrentResume = filteredSummaries.FirstOrDefault();
+                }
+
+                Snackbar.Add("Statut mis à jour avec succès", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Erreur lors de la mise à jour du statut", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erreur : {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task UpdateSummaryTitle(YoutubeResumeDto summary)
+    {
+        try
+        {
+            var success = await youtubeRepository.UpdateTitle(summary.Id, summary.Title);
+
+            if (success)
+            {
+                // Update local data
+                var summaryInList = ytResume.FirstOrDefault(s => s.Id == summary.Id);
+                if (summaryInList != null)
+                {
+                    summaryInList.Title = summary.Title;
+                }
+
+                Snackbar.Add("Titre mis à jour avec succès", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Erreur lors de la mise à jour du titre", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erreur : {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task UpdateSummaryCategories((YoutubeResumeDto summary, List<int> categoryIds) data)
+    {
+        try
+        {
+            var success = await youtubeRepository.UpdateCategories(data.summary.Id, data.categoryIds);
+
+            if (success)
+            {
+                // Update local data
+                data.summary.CategoryIds = data.categoryIds;
+                data.summary.CategoryNames = categories
+                    .Where(c => data.categoryIds.Contains(c.Id))
+                    .Select(c => c.Name)
+                    .ToList();
+                data.summary.CategoryColors = categories
+                    .Where(c => data.categoryIds.Contains(c.Id))
+                    .Select(c => c.Color)
+                    .ToList();
+
+                var summaryInList = ytResume.FirstOrDefault(s => s.Id == data.summary.Id);
+                if (summaryInList != null)
+                {
+                    summaryInList.CategoryIds = data.categoryIds;
+                    summaryInList.CategoryNames = data.summary.CategoryNames;
+                    summaryInList.CategoryColors = data.summary.CategoryColors;
+                }
+
+                // Reapply filters
+                ApplyFilters();
+
+                Snackbar.Add("Catégories mises à jour avec succès", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Erreur lors de la mise à jour des catégories", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erreur : {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OpenCreateCategoryDialog()
+    {
+        var parameters = new DialogParameters<CategoryDialog>
+        {
+            { x => x.Category, new CategoryDto { Name = "" } }
+        };
+
+        var dialog = await DialogService.ShowAsync<CategoryDialog>("Créer une catégorie", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is CategoryDto newCategory)
+        {
+            await CreateCategory(newCategory);
+        }
+    }
+
+    private async Task CreateCategory(CategoryDto newCategory)
+    {
+        try
+        {
+            var addedCategory = await categoryRepository.Add(newCategory);
+            categories.Add(addedCategory);
+
+            Snackbar.Add($"Catégorie \"{addedCategory.Name}\" créée avec succès", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erreur lors de la création de la catégorie : {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ProcessYoutubeUrl()
+    {
+        if (string.IsNullOrWhiteSpace(currentUrl))
+        {
+            Snackbar.Add("Veuillez saisir une URL YouTube valide.", Severity.Warning);
+            return;
+        }
+
+        isProcessing = true;
+        processingMessage = "Extraction du transcript YouTube...";
+        StateHasChanged();
+
+        try
+        {
+            // Étape 1 : Extraction et génération
+            var newResume = await summaryService.CreateSummaryFromYoutube(currentUrl, selectedTravelIdForCreation);
+
+            // Étape 2 : Succès
+            processingMessage = "Finalisation...";
+            StateHasChanged();
+
+            // Rafraîchir les données
+            await LoadData();
+
+            // Sélectionner le nouveau résumé
+            CurrentResume = ytResume.FirstOrDefault(x => x.Url == newResume.Url && x.Title == newResume.Title);
+
+            // Réinitialiser les champs
+            currentUrl = string.Empty;
+            selectedTravelIdForCreation = null;
+
+            // Notification de succès
+            Snackbar.Add("✓ Résumé créé avec succès!", Severity.Success);
+        }
+        catch (ArgumentException ex)
+        {
+            Snackbar.Add($"URL invalide : {ex.Message}", Severity.Error);
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Erreur lors de la récupération du transcript : {ex.Message}", Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Une erreur est survenue : {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteSummaryWithConfirmation(YoutubeResumeDto summary)
+    {
+        var parameters = new DialogParameters<ConfirmationDialog>
+        {
+            { x => x.Title, "Confirmer la suppression" },
+            { x => x.Message, $"Voulez-vous vraiment supprimer le résumé de \"{summary.Title}\" ?" },
+            { x => x.ConfirmText, "Supprimer" },
+            { x => x.CancelText, "Annuler" }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>("", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            var deleted = await youtubeRepository.DeleteSummary(summary.Id);
+
+            if (deleted)
+            {
+                // Retirer de la liste locale
+                ytResume.Remove(summary);
+
+                // Si c'était le résumé sélectionné, gérer la sélection
+                if (CurrentResume?.Id == summary.Id)
+                {
+                    var index = filteredSummaries.IndexOf(summary);
+                    filteredSummaries.Remove(summary);
+
+                    if (filteredSummaries.Any())
+                    {
+                        CurrentResume = index < filteredSummaries.Count
+                            ? filteredSummaries[index]
+                            : filteredSummaries.LastOrDefault();
+                    }
+                    else
+                    {
+                        CurrentResume = null;
+                    }
+                }
+                else
+                {
+                    filteredSummaries.Remove(summary);
+                }
+
+                // Rafraîchir les compteurs
+                summariesCountByTravel = await travelRepository.GetSummariesCountByTravel();
+
+                Snackbar.Add("Résumé supprimé avec succès", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Erreur lors de la suppression du résumé", Severity.Error);
+            }
+        }
+    }
+
+    private async Task OpenCreateTravelDialog()
+    {
+        var parameters = new DialogParameters<TravelDialog>
+        {
+            { x => x.Travel, new TravelDto() }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+        var dialog = await DialogService.ShowAsync<TravelDialog>("", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is TravelDto newTravel)
+        {
+            var addedTravel = await travelRepository.Add(newTravel);
+            travels.Add(addedTravel);
+
+            Snackbar.Add($"Voyage \"{addedTravel.Name}\" créé avec succès", Severity.Success);
+        }
+    }
+
+    private async Task OpenEditTravelDialog(TravelDto travel)
+    {
+        var parameters = new DialogParameters<TravelDialog>
+        {
+            { x => x.Travel, new TravelDto
+                {
+                    Id = travel.Id,
+                    Name = travel.Name,
+                    StartDate = travel.StartDate,
+                    EndDate = travel.EndDate,
+                    IsArchived = travel.IsArchived,
+                    CreatedDate = travel.CreatedDate
+                }
+            }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+        var dialog = await DialogService.ShowAsync<TravelDialog>("", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is TravelDto updatedTravel)
+        {
+            var success = await travelRepository.Update(updatedTravel);
+
+            if (success)
+            {
+                var index = travels.FindIndex(t => t.Id == updatedTravel.Id);
+                if (index >= 0)
+                {
+                    travels[index] = updatedTravel;
+                }
+
+                // Rafraîchir les résumés pour mettre à jour les noms de voyage
+                await LoadData();
+
+                Snackbar.Add($"Voyage \"{updatedTravel.Name}\" modifié avec succès", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Erreur lors de la modification du voyage", Severity.Error);
+            }
+        }
+    }
+
+    private async Task UpdateSummaryTravel(YoutubeResumeDto summary)
+    {
+        // Mettre à jour en base de données
+        var success = await youtubeRepository.UpdateSummaryTravel(summary.Id, summary.TravelId);
+
+        if (success)
+        {
+            // Trouver le résumé dans la liste complète et mettre à jour
+            var summaryToUpdate = ytResume.FirstOrDefault(s => s.Id == summary.Id);
+
+            if (summaryToUpdate != null)
+            {
+                summaryToUpdate.TravelId = summary.TravelId;
+                summaryToUpdate.TravelName = summary.TravelId.HasValue
+                    ? travels.FirstOrDefault(t => t.Id == summary.TravelId.Value)?.Name
+                    : null;
+            }
+
+            // Rafraîchir les compteurs
+            summariesCountByTravel = await travelRepository.GetSummariesCountByTravel();
+
+            // Réappliquer les filtres pour mettre à jour la liste affichée
+            ApplyFilters();
+
+            Snackbar.Add("Voyage mis à jour avec succès", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Erreur lors de la mise à jour du voyage", Severity.Error);
+        }
+    }
+}

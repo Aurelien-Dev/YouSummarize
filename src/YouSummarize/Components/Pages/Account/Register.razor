@@ -1,0 +1,135 @@
+@page "/register"
+@* PAS de @rendermode = Static Server-Side Rendering (SSR) *@
+
+@inject NavigationManager NavigationManager
+
+<PageTitle>Inscription | YouSummarize</PageTitle>
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8" Gutters="false" Style="height: 100vh;">
+    <div class="d-flex flex-column mud-width-full">
+        <MudPaper Elevation="25" Class="pa-8" Width="100%" MinHeight="700px">
+
+            <MudStack Spacing="4">
+                <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                    <MudImage Src="logo.png" Width="200" />
+                </MudStack>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <MudAlert Severity="Severity.Error">@errorMessage</MudAlert>
+                }
+
+                <MudText Typo="Typo.h4" Align="Align.Center">Créer un compte</MudText>
+
+                @* Formulaire HTML pur qui POST vers l'endpoint /auth/register *@
+                <form method="post" action="/auth/register">
+                    <MudStack Spacing="3">
+                        <MudTextField @bind-Value="accountNameValue"
+                                      Label="Nom d'affichage"
+                                      Variant="Variant.Outlined"
+                                      Required="true"
+                                      HelperText="Ce nom sera visible sur votre profil" />
+                        <input type="hidden" name="accountName" value="@accountNameValue" />
+
+                        <MudTextField @bind-Value="emailValue"
+                                      Label="Email"
+                                      Variant="Variant.Outlined"
+                                      InputType="InputType.Email"
+                                      AutoComplete="username"
+                                      Required="true"
+                                      HelperText="Utilisez votre adresse email pour vous connecter" />
+                        <input type="hidden" name="email" value="@emailValue" />
+
+                        <MudTextField @bind-Value="passwordValue"
+                                      Label="Mot de passe"
+                                      Variant="Variant.Outlined"
+                                      InputType="@(isPasswordVisible ? InputType.Text : InputType.Password)"
+                                      AutoComplete="new-password"
+                                      Required="true"
+                                      HelperText="Minimum 6 caractères"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@(isPasswordVisible ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                                      OnAdornmentClick="TogglePasswordVisibility" />
+                        <input type="hidden" name="password" value="@passwordValue" />
+
+                        <MudTextField @bind-Value="confirmPasswordValue"
+                                      Label="Confirmer le mot de passe"
+                                      Variant="Variant.Outlined"
+                                      InputType="@(isConfirmPasswordVisible ? InputType.Text : InputType.Password)"
+                                      AutoComplete="new-password"
+                                      Required="true"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@(isConfirmPasswordVisible ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                                      OnAdornmentClick="ToggleConfirmPasswordVisibility" />
+                        <input type="hidden" name="confirmPassword" value="@confirmPasswordValue" />
+
+                        <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+
+                        <MudButton ButtonType="ButtonType.Submit"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Size="Size.Large"
+                                   HtmlTag="button">
+                            S'inscrire
+                        </MudButton>
+                    </MudStack>
+                </form>
+
+                <MudDivider Class="my-2" />
+
+                <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.body2">
+                        Vous avez déjà un compte ?
+                    </MudText>
+                    <MudLink Href="@($"/login{(string.IsNullOrEmpty(ReturnUrl) ? "" : $"?returnUrl={Uri.EscapeDataString(ReturnUrl)}")}")">
+                        Se connecter
+                    </MudLink>
+                </MudStack>
+            </MudStack>
+
+        </MudPaper>
+    </div>
+</MudContainer>
+
+@code {
+    private string? errorMessage;
+    private string accountNameValue = "";
+    private string emailValue = "";
+    private string passwordValue = "";
+    private string confirmPasswordValue = "";
+    private bool isPasswordVisible = false;
+    private bool isConfirmPasswordVisible = false;
+
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    private string? ReturnUrl { get; set; }
+
+    protected override void OnInitialized()
+    {
+        // Récupérer les paramètres de query string pour afficher les erreurs
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var error = queryParams["error"];
+        var details = queryParams["details"];
+
+        errorMessage = error switch
+        {
+            "empty" => "❌ Email et mot de passe requis",
+            "mismatch" => "❌ Les mots de passe ne correspondent pas",
+            "creation" => !string.IsNullOrEmpty(details)
+                ? $"❌ Erreur lors de la création du compte : {details}"
+                : "❌ Erreur lors de la création du compte",
+            "server" => "❌ Une erreur serveur s'est produite. Veuillez réessayer.",
+            _ => null
+        };
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        isPasswordVisible = !isPasswordVisible;
+    }
+
+    private void ToggleConfirmPasswordVisibility()
+    {
+        isConfirmPasswordVisible = !isConfirmPasswordVisible;
+    }
+}

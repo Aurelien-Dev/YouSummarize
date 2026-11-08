@@ -1,0 +1,97 @@
+@using YouSummarize.Components.Shared
+@using YouSummarize.Managers
+@inherits LayoutComponentBase
+
+<MudThemeProvider @ref="_mudThemeProvider" Theme="_themeManager.Theme" @bind-IsDarkMode="@_isDarkMode" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Dense="false" Fixed="false">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Default" Edge="Edge.Start" OnClick="DrawerToggle" />
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Custom.Brands.YouTube" Color="Color.Error" Size="Size.Large" />
+            <MudText Typo="Typo.h6">YouSummarize - Administration</MudText>
+        </MudStack>
+
+        <MudSpacer />
+
+        <MudIconButton Icon="@Icons.Material.Filled.AccountCircle" 
+                      Href="/profile"
+                      Color="Color.Default" 
+                      Size="Size.Medium"
+                      title="Mon profil" />
+        <MudThemeManagerButton OnClick="@((e) => OpenThemeManager(true))" />
+        <LogoutButton />
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2" Variant="DrawerVariant.Persistent">
+        <MudNavMenu>
+            <MudNavLink Href="/travelplanner/admin" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+                Dashboard
+            </MudNavLink>
+            <MudNavLink Href="/travelplanner/admin/travels" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.FlightTakeoff">
+                Gestion des voyages
+            </MudNavLink>
+            <MudNavLink Href="/travelplanner/admin/categories" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Category">
+                Gestion des catégories
+            </MudNavLink>
+            <MudNavLink Href="/admin/users" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.People">
+                Gestion des utilisateurs
+            </MudNavLink>
+            <MudNavLink Href="/admin/prompt" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Description">
+                Gestion des prompts
+            </MudNavLink>
+            <MudDivider Class="my-2" />
+            <MudNavLink Href="/travelplanner" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ArrowBack">
+                Retour à YouSummarize
+            </MudNavLink>
+        </MudNavMenu>
+    </MudDrawer>
+
+    <MudMainContent Class="pa-6">
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+
+    <MudThemeManager Open="_themeManagerOpen" OpenChanged="OpenThemeManager" Theme="_themeManager" ThemeChanged="UpdateTheme" IsDarkMode="@_isDarkMode" />
+</MudLayout>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _isDarkMode = false;
+    private MudThemeProvider? _mudThemeProvider;
+    private ThemeManagerTheme _themeManager = new ThemeManagerTheme();
+    private bool _themeManagerOpen = false;
+
+    protected override void OnInitialized()
+    {
+        // Initialize theme with CustomThemeManager.TravelPlannerAdminTheme
+        _themeManager.Theme = CustomThemeManager.TravelPlannerAdminTheme;
+        StateHasChanged();
+    }
+
+    void OpenThemeManager(bool value)
+    {
+        _themeManagerOpen = value;
+    }
+
+    void UpdateTheme(ThemeManagerTheme value)
+    {
+        _themeManager = value;
+        StateHasChanged();
+    }
+
+    private void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+}

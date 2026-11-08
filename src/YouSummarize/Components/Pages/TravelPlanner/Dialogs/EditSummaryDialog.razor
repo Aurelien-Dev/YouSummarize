@@ -1,0 +1,169 @@
+@using YouSummarize.Dto.Models
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Modifier le résumé</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="form" @bind-IsValid="@isValid">
+            <MudTextField @bind-Value="editedTitle" 
+                          Label="Titre" 
+                          Variant="Variant.Outlined"
+                          Required="true"
+                          RequiredError="Le titre est obligatoire"
+                          MaxLength="500"
+                          Counter="500"
+                          Immediate="true"
+                          Class="mb-4" />
+
+            <MudSelect T="int?" 
+                      @bind-Value="editedTravelId" 
+                      Label="Voyage associé" 
+                      Variant="Variant.Outlined"
+                      Clearable="true"
+                      Class="mb-4">
+                <MudSelectItem T="int?" Value="@((int?)null)">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Size="Size.Small" />
+                        <MudText>Non classé</MudText>
+                    </MudStack>
+                </MudSelectItem>
+                @foreach (var travel in Travels.Where(t => !t.IsArchived).OrderBy(t => t.Name))
+                {
+                    <MudSelectItem T="int?" Value="@((int?)travel.Id)">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.Luggage" Size="Size.Small" Color="Color.Primary" />
+                            <MudText>@travel.Name</MudText>
+                        </MudStack>
+                    </MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudSelect T="int" ToStringFunc="@ToStringFunc"
+                    SelectedValues="@editedCategoryIds" 
+                    SelectedValuesChanged="@OnCategorySelectedValuesChanged"
+                    Label="Catégories" 
+                    Variant="Variant.Outlined"
+                    MultiSelection="true"
+                    Clearable="true"
+                    Class="mb-4">
+                @foreach (var category in Categories.OrderBy(c => c.Name))
+                {
+                    var iconStyle = !string.IsNullOrWhiteSpace(category.Color) ? $"color: {category.Color}; font-size: 12px;" : "font-size: 12px;";
+                    <MudSelectItem T="int" Value="@category.Id">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            @if (!string.IsNullOrWhiteSpace(category.Color))
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.Circle" Size="Size.Small" Style="@iconStyle" />
+                            }
+                            <MudText>@category.Name</MudText>
+                        </MudStack>
+                    </MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudSelect T="SummaryStatus" 
+                      @bind-Value="editedStatus" 
+                      Label="Statut" 
+                      Variant="Variant.Outlined" >
+                <MudSelectItem T="SummaryStatus" Value="@SummaryStatus.ToReview">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.Circle" Size="Size.Small" Color="Color.Default" />
+                        <MudText>À consulter</MudText>
+                    </MudStack>
+                </MudSelectItem>
+                <MudSelectItem T="SummaryStatus" Value="@SummaryStatus.Reviewed">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.Circle" Size="Size.Small" Color="Color.Info" />
+                        <MudText>Consulté</MudText>
+                    </MudStack>
+                </MudSelectItem>
+                <MudSelectItem T="SummaryStatus" Value="@SummaryStatus.Selected">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.Circle" Size="Size.Small" Color="Color.Success" />
+                        <MudText>Retenu</MudText>
+                    </MudStack>
+                </MudSelectItem>
+                <MudSelectItem T="SummaryStatus" Value="@SummaryStatus.Rejected">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.Circle" Size="Size.Small" Color="Color.Error" />
+                        <MudText>Écarté</MudText>
+                    </MudStack>
+                </MudSelectItem>
+            </MudSelect>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Annuler</MudButton>
+        <MudButton Color="Color.Primary" 
+                   Variant="Variant.Filled" 
+                   OnClick="Submit"
+                   Disabled="@(!isValid)">
+            Enregistrer
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public YoutubeResumeDto? Summary { get; set; } = null!;
+    [Parameter] public List<TravelDto> Travels { get; set; } = [];
+    [Parameter] public List<CategoryDto> Categories { get; set; } = [];
+
+    private MudForm form = default!;
+    private bool isValid;
+
+    private string editedTitle = string.Empty;
+    private int? editedTravelId;
+    private HashSet<int> editedCategoryIds = new();
+    private SummaryStatus editedStatus;
+
+    private string ToStringFunc(int categoryId)
+    {
+        return Categories.FirstOrDefault(c => c.Id == categoryId)?.Name ?? string.Empty;
+    }
+
+    protected override void OnInitialized()
+    {
+        // Initialize form values from Summary
+        editedTitle = Summary?.Title ?? string.Empty;
+        editedTravelId = Summary?.TravelId;
+        editedCategoryIds = Summary?.CategoryIds.ToHashSet() ?? new();
+        editedStatus = Summary?.Status ?? SummaryStatus.ToReview;
+    }
+
+    private void OnCategorySelectedValuesChanged(IEnumerable<int> newCategoryIds)
+    {
+        editedCategoryIds = newCategoryIds.ToHashSet();
+    }
+
+    private void Submit()
+    {
+        if (isValid && Summary != null)
+        {
+            // Create a result object with all edited values
+            var result = new EditedSummaryData
+            {
+                SummaryId = Summary.Id,
+                Title = editedTitle,
+                TravelId = editedTravelId,
+                CategoryIds = editedCategoryIds.ToList(),
+                Status = editedStatus
+            };
+
+            MudDialog.Close(DialogResult.Ok(result));
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    public class EditedSummaryData
+    {
+        public int SummaryId { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public int? TravelId { get; set; }
+        public List<int> CategoryIds { get; set; } = [];
+        public SummaryStatus Status { get; set; }
+    }
+}

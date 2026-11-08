@@ -1,0 +1,100 @@
+@page "/debug/auth-debug"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Debug Auth | YouSummarize</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8">
+    <MudPaper Elevation="4" Class="pa-6">
+        <MudText Typo="Typo.h4" Class="mb-4">🔍 Diagnostic d'authentification</MudText>
+
+        @if (authState != null)
+        {
+            <MudAlert Severity="@(authState.User.Identity?.IsAuthenticated == true ? Severity.Success : Severity.Warning)" Class="mb-4">
+                <MudText Typo="Typo.h6">
+                    État : @(authState.User.Identity?.IsAuthenticated == true ? "✅ Authentifié" : "❌ Non authentifié")
+                </MudText>
+            </MudAlert>
+
+            @if (authState.User.Identity?.IsAuthenticated == true)
+            {
+                <MudStack Spacing="3">
+                    <MudText Typo="Typo.subtitle1"><strong>Nom d'utilisateur :</strong> @authState.User.Identity.Name</MudText>
+
+                    <MudDivider />
+
+                    <MudText Typo="Typo.subtitle1"><strong>Claims :</strong></MudText>
+                    <MudSimpleTable Elevation="0" Dense="true">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Valeur</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var claim in authState.User.Claims)
+                            {
+                                <tr>
+                                    <td><code>@claim.Type</code></td>
+                                    <td>@claim.Value</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+
+                    <MudDivider />
+
+                    <MudText Typo="Typo.subtitle1"><strong>Rôles :</strong></MudText>
+                    @{
+                        var roles = authState.User.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToList();
+                    }
+                    @if (roles.Any())
+                    {
+                        <MudStack Row="true" Spacing="1">
+                            @foreach (var role in roles)
+                            {
+                                <MudText Typo="Typo.body2">
+                                    <MudBadge Color="Color.Primary" Dot="false" Content="@role" />
+                                </MudText>
+                            }
+                        </MudStack>
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Warning">Aucun rôle assigné</MudAlert>
+                    }
+                </MudStack>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Info">
+                    Vous n'êtes pas authentifié. Allez sur <MudLink Href="/test-login">Test Login</MudLink>
+                </MudAlert>
+            }
+        }
+        else
+        {
+            <MudProgressCircular Indeterminate="true" />
+            <MudText>Chargement...</MudText>
+        }
+
+        <MudDivider Class="my-4" />
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/test-login">
+            Retour au Test Login
+        </MudButton>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private AuthenticationState? authState;
+
+    protected override async Task OnInitializedAsync()
+    {
+        authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+    }
+}

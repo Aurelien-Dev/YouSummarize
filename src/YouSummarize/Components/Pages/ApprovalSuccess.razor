@@ -1,0 +1,58 @@
+@page "/approval-success"
+@attribute [AllowAnonymous]
+
+<PageTitle>Approbation Réussie | YouSummarize</PageTitle>
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    <MudPaper Elevation="3" Class="pa-8" Style="text-align: center;">
+        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" Style="font-size: 5rem;" />
+
+        <MudText Typo="Typo.h4" Class="mt-4 mb-2" Color="Color.Success">
+            ✅ Approbation Réussie !
+        </MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-4">
+            @if (IsAlreadyApproved)
+            {
+                <text>Cet utilisateur a déjà été approuvé précédemment.</text>
+            }
+            else
+            {
+                <text>L'utilisateur a été approuvé avec succès et a reçu le rôle "Reader".</text>
+            }
+        </MudText>
+
+        <MudText Typo="Typo.body2" Class="mb-6" Color="Color.Default">
+            L'utilisateur peut maintenant se connecter et accéder aux recettes familiales.
+        </MudText>
+
+        <MudDivider Class="my-4" />
+
+        <MudButton Href="/" 
+                   Variant="Variant.Filled" 
+                   Color="Color.Primary" 
+                   Size="Size.Large"
+                   StartIcon="@Icons.Material.Filled.Home">
+            Retour à l'accueil
+        </MudButton>
+
+        <MudButton Href="/admin" 
+                   Variant="Variant.Text" 
+                   Color="Color.Default" 
+                   Size="Size.Medium"
+                   Class="mt-2"
+                   StartIcon="@Icons.Material.Filled.Settings">
+            Gérer les utilisateurs
+        </MudButton>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [SupplyParameterFromQuery(Name = "status")]
+    public string? Status { get; set; }
+
+    private bool IsAlreadyApproved => Status == "already-approved";
+}

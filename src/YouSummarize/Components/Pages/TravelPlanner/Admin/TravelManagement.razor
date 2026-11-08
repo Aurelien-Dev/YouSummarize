@@ -1,0 +1,225 @@
+@page "/travelplanner/admin/travels"
+@attribute [Authorize(Roles = "Admin")]
+@layout global::YouSummarize.Components.Layout.TravelPlannerAdminLayout
+@using Microsoft.AspNetCore.Authorization
+@inject ITravelRepository TravelRepository
+@inject ISummaryService SummaryService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>YouSummarize - Travels</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-8">
+    <MudStack Spacing="4">
+        <!-- Header -->
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.h3" Style="font-weight: 600;">
+                <MudIcon Icon="@Icons.Material.Filled.FlightTakeoff" Class="mr-2" /> Travels
+            </MudText>
+            <MudButton Variant="Variant.Filled" 
+                       Color="Color.Primary" 
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenAddDialog">
+                New Travel
+            </MudButton>
+        </MudStack>
+
+        @if (_isLoading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        }
+        else
+        {
+            <!-- Travels Table -->
+            <MudTable Items="@_travels" 
+                      Hover="true" 
+                      Breakpoint="Breakpoint.Sm"
+                      Dense="false"
+                      Elevation="2">
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Start Date</MudTh>
+                    <MudTh>End Date</MudTh>
+                    <MudTh>Summaries</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Name">
+                        <MudText Typo="Typo.body2" Style="font-weight: 500;">@context.Name</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Start Date">
+                        @if (context.StartDate.HasValue)
+                        {
+                            <MudText Typo="Typo.body2">@context.StartDate.Value.ToString("MMM dd, yyyy")</MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">-</MudText>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="End Date">
+                        @if (context.EndDate.HasValue)
+                        {
+                            <MudText Typo="Typo.body2">@context.EndDate.Value.ToString("MMM dd, yyyy")</MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">-</MudText>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Summaries">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info">@GetSummaryCount(context.Id)</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Status">
+                        @if (context.IsArchived)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Default">Archived</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Success">Active</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Actions">
+                        <MudStack Row="true" Spacing="1">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                           Size="Size.Small" 
+                                           Color="Color.Primary"
+                                           OnClick="@(() => OpenEditDialog(context))"
+                                           Title="Edit" />
+                            <MudIconButton Icon="@(context.IsArchived ? Icons.Material.Filled.Unarchive : Icons.Material.Filled.Archive)" 
+                                           Size="Size.Small" 
+                                           Color="Color.Default"
+                                           OnClick="@(() => ToggleArchive(context))"
+                                           Title="@(context.IsArchived ? "Unarchive" : "Archive")" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                           Size="Size.Small" 
+                                           Color="Color.Error"
+                                           OnClick="@(() => DeleteTravel(context))"
+                                           Title="Delete" />
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body1" Align="Align.Center" Class="py-8">
+                        No travels found. Create your first travel!
+                    </MudText>
+                </NoRecordsContent>
+            </MudTable>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private List<TravelDto> _travels = new();
+    private List<YoutubeResumeDto> _summaries = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            _travels = await TravelRepository.GetAll();
+            _summaries = await SummaryService.GetAllSummaries();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private int GetSummaryCount(int travelId)
+    {
+        return _summaries.Count(s => s.TravelId == travelId);
+    }
+
+    private async Task OpenAddDialog()
+    {
+        var parameters = new DialogParameters
+        {
+            { "Travel", new TravelDto { Name = "", StartDate = null, EndDate = null, IsArchived = false } }
+        };
+
+        var dialog = await DialogService.ShowAsync<YouSummarize.Components.Pages.TravelPlanner.Dialogs.TravelDialog>("New Travel", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is TravelDto travel)
+        {
+            var added = await TravelRepository.Add(travel);
+            _travels.Add(added);
+            Snackbar.Add("Travel created successfully", Severity.Success);
+        }
+    }
+
+    private async Task OpenEditDialog(TravelDto travel)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Travel", travel }
+        };
+
+        var dialog = await DialogService.ShowAsync<YouSummarize.Components.Pages.TravelPlanner.Dialogs.TravelDialog>("Edit Travel", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is TravelDto updatedTravel)
+        {
+            var success = await TravelRepository.Update(updatedTravel);
+            if (success)
+            {
+                var index = _travels.FindIndex(t => t.Id == updatedTravel.Id);
+                if (index >= 0)
+                {
+                    _travels[index] = updatedTravel;
+                }
+                Snackbar.Add("Travel updated successfully", Severity.Success);
+            }
+        }
+    }
+
+    private async Task ToggleArchive(TravelDto travel)
+    {
+        travel.IsArchived = !travel.IsArchived;
+        var success = await TravelRepository.Update(travel);
+        if (success)
+        {
+            Snackbar.Add(travel.IsArchived ? "Travel archived" : "Travel unarchived", Severity.Success);
+        }
+    }
+
+    private async Task DeleteTravel(TravelDto travel)
+    {
+        var summaryCount = GetSummaryCount(travel.Id);
+        var message = summaryCount > 0
+            ? $"This travel has {summaryCount} associated summaries. These summaries will be moved to 'Unclassified'. Are you sure you want to delete this travel?"
+            : "Are you sure you want to delete this travel?";
+
+        var parameters = new DialogParameters
+        {
+            { "Title", "Delete Travel" },
+            { "Message", message },
+            { "ConfirmText", "Delete" },
+            { "CancelText", "Cancel" }
+        };
+
+        var dialog = await DialogService.ShowAsync<YouSummarize.Components.Shared.Dialogs.ConfirmationDialog>("", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            var success = await TravelRepository.Delete(travel.Id);
+            if (success)
+            {
+                _travels.Remove(travel);
+                Snackbar.Add("Travel deleted successfully", Severity.Success);
+                await LoadData(); // Reload to refresh summary counts
+            }
+        }
+    }
+}

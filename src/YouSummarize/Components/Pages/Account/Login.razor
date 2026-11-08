@@ -1,0 +1,112 @@
+@page "/login"
+@* PAS de @rendermode = Static Server-Side Rendering (SSR) *@
+
+@inject NavigationManager NavigationManager
+
+<PageTitle>Connexion | YouSummarize</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8" Gutters="false" Style="height: 100vh;">
+    <div class="d-flex flex-column mud-width-full">
+        <MudPaper Elevation="25" Class="pa-8" Width="100%" MinHeight="700px">
+
+            <MudStack Spacing="4">
+                <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                    <MudImage Src="logo.png" Style="width:80%" />
+                </MudStack>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <MudAlert Severity="Severity.Error">@errorMessage</MudAlert>
+                }
+
+                <MudText Typo="Typo.h4" Align="Align.Center">Connexion</MudText>
+
+                @* Formulaire HTML pur qui POST vers l'endpoint /auth/login *@
+                <form method="post" action="/auth/login">
+                    <MudStack Spacing="3">
+                        <MudTextField @bind-Value="emailValue"
+                                      Label="Email"
+                                      Variant="Variant.Outlined"
+                                      InputType="InputType.Email"
+                                      AutoComplete="username"
+                                      Required="true" />
+                        <input type="hidden" name="email" value="@emailValue" />
+
+                        <MudTextField @bind-Value="passwordValue"
+                                      Label="Mot de passe"
+                                      Variant="Variant.Outlined"
+                                      InputType="@(isPasswordVisible ? InputType.Text : InputType.Password)"
+                                      AutoComplete="current-password"
+                                      Required="true"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@(isPasswordVisible ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                                      OnAdornmentClick="TogglePasswordVisibility" />
+                        <input type="hidden" name="password" value="@passwordValue" />
+
+                        <MudCheckBox @bind-Value="rememberMeValue"
+                                     Label="Se souvenir de moi"
+                                     Color="Color.Primary" />
+                        <input type="hidden" name="rememberMe" value="@(rememberMeValue ? "true" : "false")" />
+
+                        <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+
+                        <MudButton ButtonType="ButtonType.Submit"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Size="Size.Large"
+                                   HtmlTag="button">
+                            Connexion
+                        </MudButton>
+                            </MudStack>
+                        </form>
+
+                        <MudDivider Class="my-2" />
+
+                        <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                            <MudText Typo="Typo.body2">
+                                Vous n'avez pas encore de compte ?
+                            </MudText>
+                            <MudLink Href="@($"/register{(string.IsNullOrEmpty(ReturnUrl) ? "" : $"?returnUrl={Uri.EscapeDataString(ReturnUrl)}")}")">
+                                S'inscrire
+                            </MudLink>
+                        </MudStack>
+                    </MudStack>
+
+        </MudPaper>
+    </div>
+</MudContainer>
+
+@code {
+    private string? errorMessage;
+    private string emailValue = "";
+    private string passwordValue = "";
+    private bool rememberMeValue = false;
+    private bool isPasswordVisible = false;
+
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    private string? ReturnUrl { get; set; }
+
+    protected override void OnInitialized()
+    {
+        // Récupérer les paramètres de query string pour afficher les erreurs
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var error = queryParams["error"];
+
+        errorMessage = error switch
+        {
+            "empty" => "❌ Email et mot de passe requis",
+            "2fa" => "❌ Authentification à deux facteurs requise (non implémentée)",
+            "locked" => "❌ Votre compte est verrouillé",
+            "invalid" => "❌ Email ou mot de passe incorrect",
+            "server" => "❌ Une erreur serveur s'est produite. Veuillez réessayer.",
+            _ => null
+        };
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        isPasswordVisible = !isPasswordVisible;
+    }
+}

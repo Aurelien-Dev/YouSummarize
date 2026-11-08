@@ -1,0 +1,70 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>aspnet-YouSummarize-7c94b49c-03eb-44fd-bbc5-0730abf0ee91</UserSecretsId>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <DockerComposeProjectPath>..\YouSummarize.Docker\docker-compose.dcproj</DockerComposeProjectPath>
+	<IncludePrerelease>true</IncludePrerelease>
+  </PropertyGroup>
+  <ItemGroup>
+    
+    <Compile Remove="Components\Pages\TravelPlanner\Categories\**" />
+    <Compile Remove="Components\Pages\TravelPlanner\Travels\**" />
+    <Compile Remove="Properties\PublishProfiles\**" />
+    
+    <Content Remove="Components\Pages\TravelPlanner\Categories\**" />
+    <Content Remove="Components\Pages\TravelPlanner\Travels\**" />
+    <Content Remove="Properties\PublishProfiles\**" />
+    
+    <EmbeddedResource Remove="Components\Pages\TravelPlanner\Categories\**" />
+    <EmbeddedResource Remove="Components\Pages\TravelPlanner\Travels\**" />
+    <EmbeddedResource Remove="Properties\PublishProfiles\**" />
+    
+    <None Remove="Components\Pages\TravelPlanner\Categories\**" />
+    <None Remove="Components\Pages\TravelPlanner\Travels\**" />
+    <None Remove="Properties\PublishProfiles\**" />
+    <_WebToolingArtifacts Remove="Properties\PublishProfiles\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="BitzArt.Blazor.Cookies.Server" Version="1.5.1" />
+    <PackageReference Include="Blazored.LocalStorage" Version="4.5.0" />
+    
+    
+    
+    <PackageReference Include="MailKit" Version="4.17.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.8.3" />
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="10.8.3" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.8.3" />
+    <PackageReference Include="MimeKit" Version="4.17.0" />
+    <PackageReference Include="MudBlazor" Version="9.7.0" />
+    <PackageReference Include="MudBlazor.Markdown" Version="9.0.0" />
+    <PackageReference Include="MudBlazor.ThemeManager" Version="4.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+  <ItemGroup>
+    
+    <ProjectReference Include="..\YouSummarize.Data.Repository\YouSummarize.Data.Repository.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Update="appsettings.Local.json" CopyToPublishDirectory="Never" />
+    <Folder Include="Tools\yt-dlp\linux-x64\" />
+    <Folder Include="Tools\yt-dlp\win-x64\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="Tools\yt-dlp\linux-x64\yt-dlp_musllinux">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </None>
+    <None Update="Tools\yt-dlp\win-x64\yt-dlp.exe">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+</Project>

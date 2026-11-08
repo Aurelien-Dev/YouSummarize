@@ -1,0 +1,227 @@
+@page "/admin/prompt"
+@attribute [Authorize(Roles = "Admin")]
+
+@layout YouSummarize.Components.Layout.TravelPlannerAdminLayout
+@using Microsoft.AspNetCore.Authorization
+
+<PageTitle>Gestion des prompts | YouSummarize</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" Class="mb-6">
+        <MudIcon Icon="@Icons.Material.Filled.Description" Class="mr-2" />
+        Gestion des Prompts
+    </MudText>
+
+    @if (_isLoading)
+    {
+        <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudCard Elevation="3" Style="background-color: white;">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@Icons.Material.Filled.List" Color="Color.Primary" Size="Size.Large" />
+                                <MudText Typo="Typo.h6">Liste des Prompts</MudText>
+                            </MudStack>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudList T="string">
+
+            @foreach (var item in Prompts)
+            {
+                <MudListItem Dense="true" 
+                             Text="@item.Name" 
+                             Icon="@Icons.Material.Filled.Description" 
+                             OnClick="@(() => ShowPrompt(item))"
+                             Style="@(CurrentPrompt?.Id == item.Id ? "background-color: var(--mud-palette-action-default-hover);" : "")" />
+            }
+
+                        </MudList>
+                        <MudButton Variant="Variant.Filled" 
+                                   Color="Color.Primary" 
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="CreateNewPrompt"
+                                   Class="mt-3"
+                                   FullWidth="true">
+                            Nouveau Prompt
+                        </MudButton>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" md="8">
+                @if (CurrentPrompt is not null)
+                {
+                    <MudCard Elevation="3" Style="background-color: white;">
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudIcon Icon="@Icons.Material.Filled.Description" Color="Color.Secondary" Size="Size.Large" />
+                                    <MudText Typo="Typo.h6">@(string.IsNullOrEmpty(CurrentPrompt.Name) ? "Nouveau Prompt" : CurrentPrompt.Name)</MudText>
+                                </MudStack>
+                            </CardHeaderContent>
+                            <CardHeaderActions>
+                                @if (!EditMode)
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                                   Color="Color.Primary" 
+                                                   OnClick="EnterEditMode"
+                                                   Title="Modifier" />
+                                }
+                                else
+                                {
+                                    <MudStack Row="true" Spacing="1">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Save" 
+                                                       Color="Color.Success" 
+                                                       OnClick="SavePrompt"
+                                                       Title="Enregistrer" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Cancel" 
+                                                       Color="Color.Default" 
+                                                       OnClick="CancelEdit"
+                                                       Title="Annuler" />
+                                    </MudStack>
+                                }
+                            </CardHeaderActions>
+                        </MudCardHeader>
+                        <MudCardContent>
+                            @if (!EditMode)
+                            {
+                                @if (!string.IsNullOrEmpty(CurrentPrompt.Prompt))
+                                {
+                                    <MudPaper Class="pa-4" Elevation="0" Style="background-color: #fbf6ef;">
+                                        <MudMarkdown Value="@CurrentPrompt.Prompt" />
+                                    </MudPaper>
+                                }
+                                else
+                                {
+                                    <MudAlert Severity="Severity.Info">
+                                        Ce prompt ne contient pas encore de contenu.
+                                    </MudAlert>
+                                }
+                            }
+                            else
+                            {
+                                <MudStack Spacing="3">
+                                    <MudTextField T="string" 
+                                                  Label="Nom du prompt" 
+                                                  Variant="Variant.Outlined" 
+                                                  @bind-Value="CurrentPrompt.Name"
+                                                  Required="true" />
+                                    <MudTextField T="string" 
+                                                  Label="Contenu du prompt" 
+                                                  Variant="Variant.Outlined" 
+                                                  Lines="30"
+                                                  @bind-Value="CurrentPrompt.Prompt"
+                                                  Required="true" />
+                                </MudStack>
+                            }
+                        </MudCardContent>
+                    </MudCard>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Filled">
+                        <MudText Typo="Typo.subtitle1" Class="mb-2">
+                            <strong>Aucun prompt sélectionné</strong>
+                        </MudText>
+                        <MudText Typo="Typo.body2">
+                            Sélectionnez un prompt dans la liste ou créez-en un nouveau.
+                        </MudText>
+                    </MudAlert>
+                }
+            </MudItem>
+            </MudGrid>
+            }
+        </MudContainer>
+
+@code {
+    [Inject] IAiRepository AiRepository { get; set; } = null!;
+    [Inject] ISnackbar Snackbar { get; set; } = null!;
+
+    private bool _isLoading = true;
+    private List<PromptDto> Prompts { get; set; } = [];
+
+    private PromptDto? CurrentPrompt { get; set; } = null;
+    private PromptDto? _originalPrompt { get; set; } = null;
+    private bool EditMode { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+        _isLoading = false;
+    }
+
+    private async Task Load()
+    {
+        Prompts = await AiRepository.GetPrompt();
+    }
+
+    public async Task SavePrompt()
+    {
+        _isLoading = true;
+
+        if (CurrentPrompt is { Id: not null })
+            await AiRepository.UpdatePrompt(CurrentPrompt);
+        else
+            await AiRepository.AddPrompt(CurrentPrompt);
+
+        Snackbar.Clear();
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+        Snackbar.Add("Prompt enregistré avec succès.", Severity.Success);
+
+        await Load();
+        EditMode = false;
+        _isLoading = false;
+    }
+
+    private void ShowPrompt(PromptDto? promptEntity)
+    {
+        CurrentPrompt = promptEntity;
+        _originalPrompt = promptEntity != null ? new PromptDto 
+        { 
+            Id = promptEntity.Id, 
+            Name = promptEntity.Name, 
+            Prompt = promptEntity.Prompt 
+        } : null;
+        EditMode = false;
+    }
+
+    private void EnterEditMode()
+    {
+        _originalPrompt = CurrentPrompt != null ? new PromptDto 
+        { 
+            Id = CurrentPrompt.Id, 
+            Name = CurrentPrompt.Name, 
+            Prompt = CurrentPrompt.Prompt 
+        } : null;
+        EditMode = true;
+    }
+
+    private void CancelEdit()
+    {
+        if (_originalPrompt != null && CurrentPrompt != null)
+        {
+            CurrentPrompt.Id = _originalPrompt.Id;
+            CurrentPrompt.Name = _originalPrompt.Name;
+            CurrentPrompt.Prompt = _originalPrompt.Prompt;
+        }
+        else if (CurrentPrompt?.Id == null)
+        {
+            // If it was a new prompt, clear selection
+            CurrentPrompt = null;
+        }
+        EditMode = false;
+        _originalPrompt = null;
+    }
+
+    private void CreateNewPrompt()
+    {
+        CurrentPrompt = new PromptDto { Name = "NewPrompt" };
+        _originalPrompt = null;
+        EditMode = true;
+    }
+}

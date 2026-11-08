@@ -1,0 +1,440 @@
+@page "/admin/users"
+@attribute [Authorize(Roles = "Admin")]
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using YouSummarize.Data
+@layout YouSummarize.Components.Layout.TravelPlannerAdminLayout
+
+@inject IUserRepository userRepository
+@inject SignInManager<ApplicationUser> signInManager
+@inject UserManager<ApplicationUser> userManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Gestion des utilisateurs | YouSummarize</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+	<MudText Typo="Typo.h4" Class="mb-6">
+		<MudIcon Icon="@Icons.Material.Filled.People" Class="mr-2" />
+		Gestion des Utilisateurs
+	</MudText>
+
+	@if (_isLoading)
+	{
+		<MudProgressCircular Indeterminate="true" Size="Size.Large" />
+	}
+	else
+	{
+		<MudGrid Spacing="3">
+			<!-- Card 1: Total Users -->
+			<MudItem xs="12" sm="6" md="3">
+				<MudCard Elevation="3" Style="background-color: white;">
+					<MudCardHeader>
+						<CardHeaderContent>
+							<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+								<MudIcon Icon="@Icons.Material.Filled.People" Color="Color.Primary" Size="Size.Large" />
+								<MudText Typo="Typo.h6">Utilisateurs</MudText>
+							</MudStack>
+						</CardHeaderContent>
+					</MudCardHeader>
+					<MudCardContent>
+						<MudStack Spacing="3">
+							<div>
+								<MudText Typo="Typo.body2" Color="Color.Secondary">Total utilisateurs</MudText>
+								<MudText Typo="Typo.h5" Color="Color.Primary">@_totalUsers</MudText>
+							</div>
+						</MudStack>
+					</MudCardContent>
+				</MudCard>
+			</MudItem>
+
+			<!-- Card 2: Administrators -->
+			<MudItem xs="12" sm="6" md="3">
+				<MudCard Elevation="3" Style="background-color: white;">
+					<MudCardHeader>
+						<CardHeaderContent>
+							<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+								<MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Color="Color.Success" Size="Size.Large" />
+								<MudText Typo="Typo.h6">Administrateurs</MudText>
+							</MudStack>
+						</CardHeaderContent>
+					</MudCardHeader>
+					<MudCardContent>
+						<MudStack Spacing="3">
+							<div>
+								<MudText Typo="Typo.body2" Color="Color.Secondary">Comptes administrateurs</MudText>
+								<MudText Typo="Typo.h5" Color="Color.Success">@_adminCount</MudText>
+							</div>
+						</MudStack>
+					</MudCardContent>
+				</MudCard>
+			</MudItem>
+
+			<!-- Card 3: Contributors -->
+			<MudItem xs="12" sm="6" md="3">
+				<MudCard Elevation="3" Style="background-color: white;">
+					<MudCardHeader>
+						<CardHeaderContent>
+							<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+								<MudIcon Icon="@Icons.Material.Filled.Edit" Color="Color.Warning" Size="Size.Large" />
+								<MudText Typo="Typo.h6">Contributeurs</MudText>
+							</MudStack>
+						</CardHeaderContent>
+					</MudCardHeader>
+					<MudCardContent>
+						<MudStack Spacing="3">
+							<div>
+								<MudText Typo="Typo.body2" Color="Color.Secondary">Comptes contributeurs</MudText>
+								<MudText Typo="Typo.h5" Color="Color.Warning">@_contributorCount</MudText>
+							</div>
+						</MudStack>
+					</MudCardContent>
+				</MudCard>
+			</MudItem>
+
+			<!-- Card 4: Last Connection -->
+			<MudItem xs="12" sm="6" md="3">
+				<MudCard Elevation="3" Style="background-color: white;">
+					<MudCardHeader>
+						<CardHeaderContent>
+							<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+								<MudIcon Icon="@Icons.Material.Filled.Schedule" Color="Color.Info" Size="Size.Large" />
+								<MudText Typo="Typo.h6">Dernière Connexion</MudText>
+							</MudStack>
+						</CardHeaderContent>
+					</MudCardHeader>
+					<MudCardContent>
+						<MudStack Spacing="3">
+							<div>
+								@if (_lastConnectionDate.HasValue)
+								{
+									<MudText Typo="Typo.body2" Color="Color.Secondary">Plus récente</MudText>
+									<MudText Typo="Typo.body1" Color="Color.Info">@_lastConnectionDate.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudText>
+								}
+								else
+								{
+									<MudText Typo="Typo.body2" Color="Color.Secondary">Aucune connexion</MudText>
+									<MudText Typo="Typo.body1" Color="Color.Default">-</MudText>
+								}
+							</div>
+						</MudStack>
+					</MudCardContent>
+				</MudCard>
+			</MudItem>
+
+			<!-- Section: Liste des Utilisateurs -->
+			<MudItem xs="12">
+				<MudCard Elevation="3" Style="background-color: white;">
+					<MudCardHeader>
+						<CardHeaderContent>
+							<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+								<MudIcon Icon="@Icons.Material.Filled.List" Color="Color.Tertiary" Size="Size.Large" />
+								<MudText Typo="Typo.h6">Liste des Utilisateurs</MudText>
+							</MudStack>
+						</CardHeaderContent>
+					</MudCardHeader>
+					<MudCardContent>
+						<MudTable Items="users" 
+								  Hover="true" 
+								  Dense="true" 
+								  Striped="true" 
+								  Breakpoint="Breakpoint.Sm"
+								  Style="background-color: white;">
+							<HeaderContent>
+								<MudTh>Utilisateur</MudTh>
+								<MudTh>Rôles</MudTh>
+								<MudTh>Dernière connexion</MudTh>
+								<MudTh Style="text-align: center;">Actions</MudTh>
+							</HeaderContent>
+							<RowTemplate>
+								<MudTd DataLabel="Utilisateur">
+									<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+										<MudIcon Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Default" />
+										<MudText Typo="Typo.body2">@context.Name</MudText>
+									</MudStack>
+								</MudTd>
+								<MudTd DataLabel="Rôles">
+									<MudStack Row="true" Spacing="1">
+										@if (context.IsAdmin)
+										{
+											<MudChip T="string"
+													 Size="Size.Small" 
+													 Color="Color.Error" 
+													 Variant="Variant.Filled"
+													 Icon="@Icons.Material.Filled.AdminPanelSettings"
+													 OnClick="@(() => ToggleRole(context, "Admin"))"
+													 OnClose="@(() => ToggleRole(context, "Admin"))">
+												Admin
+											</MudChip>
+										}
+										else
+										{
+											<MudChip T="string"
+													 Size="Size.Small" 
+													 Color="Color.Error" 
+													 Variant="Variant.Outlined"
+													 Icon="@Icons.Material.Filled.AdminPanelSettings"
+													 OnClick="@(() => ToggleRole(context, "Admin"))">
+												Admin
+											</MudChip>
+										}
+										@if (context.IsContributor)
+										{
+											<MudChip T="string"
+													 Size="Size.Small" 
+													 Color="Color.Warning" 
+													 Variant="Variant.Filled"
+													 Icon="@Icons.Material.Filled.Edit"
+													 OnClick="@(() => ToggleRole(context, "Contributor"))"
+													 OnClose="@(() => ToggleRole(context, "Contributor"))">
+												Contributeur
+											</MudChip>
+										}
+										else
+										{
+											<MudChip T="string"
+													 Size="Size.Small" 
+													 Color="Color.Warning" 
+													 Variant="Variant.Outlined"
+													 Icon="@Icons.Material.Filled.Edit"
+													 OnClick="@(() => ToggleRole(context, "Contributor"))">
+												Contributeur
+											</MudChip>
+										}
+										@if (context.IsReader)
+										{
+											<MudChip T="string"
+													 Size="Size.Small" 
+													 Color="Color.Info" 
+													 Variant="Variant.Filled"
+													 Icon="@Icons.Material.Filled.Visibility"
+													 OnClick="@(() => ToggleRole(context, "Reader"))"
+													 OnClose="@(() => ToggleRole(context, "Reader"))">
+												Lecteur
+											</MudChip>
+										}
+										else
+										{
+											<MudChip T="string"
+													 Size="Size.Small" 
+													 Color="Color.Info" 
+													 Variant="Variant.Outlined"
+													 Icon="@Icons.Material.Filled.Visibility"
+													 OnClick="@(() => ToggleRole(context, "Reader"))">
+												Lecteur
+											</MudChip>
+										}
+									</MudStack>
+								</MudTd>
+								<MudTd DataLabel="Dernière connexion">
+									@if (context.LastLoginDate.HasValue)
+									{
+										<MudStack Spacing="0">
+											<MudText Typo="Typo.body2">@context.LastLoginDate.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudText>
+										</MudStack>
+									}
+									else
+									{
+										<MudText Typo="Typo.body2" Color="Color.Secondary">Jamais</MudText>
+									}
+								</MudTd>
+								<MudTd DataLabel="Actions" Style="text-align: center;">
+									<MudIconButton Icon="@Icons.Material.Filled.Delete"
+												   Color="Color.Error"
+												   Size="Size.Small"
+												   OnClick="@(() => DeleteUserDialog(context))"
+												   Title="Supprimer l'utilisateur" />
+								</MudTd>
+							</RowTemplate>
+
+							<PagerContent>
+								<MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }"
+											   RowsPerPageString="Éléments par page :"
+											   InfoFormat="{first_item}-{last_item} sur {all_items}" />
+							</PagerContent>
+						</MudTable>
+					</MudCardContent>
+				</MudCard>
+			</MudItem>
+		</MudGrid>
+	}
+</MudContainer>
+
+
+@code {
+	private List<UserViewModel> users { get; set; } = [];
+	private bool isDeleting = false;
+	private bool _isLoading = true;
+	private int _totalUsers = 0;
+	private int _adminCount = 0;
+	private int _contributorCount = 0;
+	private DateTime? _lastConnectionDate = null;
+
+	protected async override Task OnInitializedAsync()
+	{
+		_isLoading = true;
+		try
+		{
+			var usersIdentity = await userRepository.GetAllUsersWithRolesAsync();
+
+			foreach (var item in usersIdentity.OrderBy(c => c.User.UserName))
+			{
+				bool IsAdmin = item.Roles.Contains("Admin");
+				bool IsContributor = item.Roles.Contains("Contributor");
+				bool isReader = item.Roles.Contains("Reader");
+
+				users.Add(new UserViewModel(
+					item.User?.UserName ?? "Unknown", 
+					IsAdmin, 
+					IsContributor, 
+					isReader,
+					item.User?.LastLoginDate));
+			}
+
+			// Calculate statistics
+			_totalUsers = users.Count;
+			_adminCount = users.Count(u => u.IsAdmin);
+			_contributorCount = users.Count(u => u.IsContributor);
+			_lastConnectionDate = users
+				.Where(u => u.LastLoginDate.HasValue)
+				.OrderByDescending(u => u.LastLoginDate)
+				.FirstOrDefault()?.LastLoginDate;
+		}
+		finally
+		{
+			_isLoading = false;
+		}
+	}
+
+	private async Task ToggleRole(UserViewModel userVm, string role)
+	{
+		try
+		{
+			bool currentValue = role switch
+			{
+				"Admin" => userVm.IsAdmin,
+				"Contributor" => userVm.IsContributor,
+				"Reader" => userVm.IsReader,
+				_ => false
+			};
+
+			if (currentValue)
+			{
+				await userRepository.RemoveRoleAsync(userVm.Name, role);
+			}
+			else
+			{
+				await userRepository.AssignRoleAsync(userVm.Name, role);
+			}
+
+			// Update ViewModel
+			switch (role)
+			{
+				case "Admin":
+					userVm.IsAdmin = !currentValue;
+					break;
+				case "Contributor":
+					userVm.IsContributor = !currentValue;
+					break;
+				case "Reader":
+					userVm.IsReader = !currentValue;
+					break;
+			}
+
+			await RefreshUserRoles(userVm);
+
+			// Recalculate statistics
+			_adminCount = users.Count(u => u.IsAdmin);
+			_contributorCount = users.Count(u => u.IsContributor);
+
+			StateHasChanged();
+
+			Snackbar.Add($"Rôle {role} {(!currentValue ? "ajouté" : "retiré")} pour {userVm.Name}", Severity.Success);
+		}
+		catch (Exception ex)
+		{
+			Snackbar.Add($"Erreur lors de la modification du rôle: {ex.Message}", Severity.Error);
+		}
+	}
+	private async Task DeleteUserDialog(UserViewModel userVm)
+	{
+		if (isDeleting)
+			return;
+
+		var parameters = new DialogParameters
+		{
+			{ "Title", "Confirmation de suppression" },
+			{ "Message", $"Êtes-vous sûr de vouloir supprimer l'utilisateur {userVm.Name}?" },
+			{ "ConfirmText", "Supprimer" },
+			{ "CancelText", "Annuler" }
+		};
+
+		var dialog = await DialogService.ShowAsync<ConfirmationDialog>("", parameters);
+		var result = await dialog.Result;
+
+		if (!result.Canceled)
+		{
+			await DeleteUser(userVm);
+		}
+	}
+	private async Task DeleteUser(UserViewModel userVm)
+	{
+		try
+		{
+			isDeleting = true;
+			var result = await userRepository.DeleteUserAsync(userVm.Name);
+
+			if (result.Succeeded)
+			{
+				users.Remove(userVm);
+
+				// Recalculate statistics
+				_totalUsers = users.Count;
+				_adminCount = users.Count(u => u.IsAdmin);
+				_contributorCount = users.Count(u => u.IsContributor);
+
+				Snackbar.Add($"L'utilisateur {userVm.Name} a été supprimé avec succès", Severity.Success);
+			}
+			else
+			{
+				Snackbar.Add($"Erreur lors de la suppression: {string.Join(", ", result.Errors.Select(e => e.Description))}", Severity.Error);
+			}
+		}
+		catch (Exception ex)
+		{
+			Snackbar.Add($"Une erreur est survenue: {ex.Message}", Severity.Error);
+		}
+		finally
+		{
+			isDeleting = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task RefreshUserRoles(UserViewModel userVm)
+	{
+		var user = await userManager.FindByEmailAsync(userVm.Name);
+		if (user is null)
+			return;
+		await signInManager.RefreshSignInAsync(user);
+	}
+
+	public class UserViewModel
+	{
+		public string Name { get; set; }
+		public bool IsAdmin { get; set; }
+		public bool IsContributor { get; set; }
+		public bool IsReader { get; set; }
+		public DateTime? LastLoginDate { get; set; }
+
+		public UserViewModel(string name, bool isAdmin, bool isContributor, bool isReader, DateTime? lastLoginDate = null)
+		{
+			Name = name;
+			IsAdmin = isAdmin;
+			IsContributor = isContributor;
+			IsReader = isReader;
+			LastLoginDate = lastLoginDate;
+		}
+	}
+}

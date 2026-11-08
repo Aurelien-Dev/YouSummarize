@@ -1,0 +1,186 @@
+<MudStack Spacing="3" Class="pa-4">
+
+    @* ── Mes voyages ── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+        <MudText Typo="Typo.h6">Mes voyages</MudText>
+        <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Primary" Size="Size.Small"
+                       OnClick="OnCreateTravelClicked" Title="Créer un voyage" />
+    </MudStack>
+
+    <MudDivider />
+
+    <MudStack Spacing="2">
+        <MudPaper Outlined="true" Class="@PillClass(IsSelected(null, "all"))" @onclick="@(() => OnFilterChanged.InvokeAsync((null, "all")))">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                <MudIcon Icon="@(IsSelected(null, "all") ? Icons.Material.Filled.List : Icons.Material.Outlined.List)"
+                         Color="@(IsSelected(null, "all") ? Color.Primary : Color.Default)" Size="Size.Small" Class="ma-2" />
+                <MudText Class="flex-grow-1">Tous les résumés</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="pr-3">@TotalCount</MudText>
+            </MudStack>
+        </MudPaper>
+
+        <MudPaper Outlined="true" Class="@PillClass(IsSelected(null, "unclassified"))" @onclick="@(() => OnFilterChanged.InvokeAsync((null, "unclassified")))">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                <MudIcon Icon="@(IsSelected(null, "unclassified") ? Icons.Material.Filled.HelpOutline : Icons.Material.Outlined.HelpOutline)"
+                         Color="@(IsSelected(null, "unclassified") ? Color.Primary : Color.Default)" Size="Size.Small" Class="ma-2" />
+                <MudText Class="flex-grow-1">Non classés</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="pr-3">@UnclassifiedCount</MudText>
+            </MudStack>
+        </MudPaper>
+
+        @foreach (var travel in Travels.Where(t => !t.IsArchived).OrderByDescending(t => t.CreatedDate))
+        {
+            var isActive = IsSelected(travel.Id, "travel");
+            var count    = SummariesCount.GetValueOrDefault(travel.Id, 0);
+            <MudPaper Outlined="true" Class="@PillClass(isActive)" @onclick="@(() => OnFilterChanged.InvokeAsync((travel.Id, "travel")))">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                    <MudIcon Icon="@(isActive ? Icons.Material.Filled.Luggage : Icons.Material.Outlined.Luggage)"
+                             Color="@(isActive ? Color.Primary : Color.Default)" Size="Size.Small" Class="ma-2" />
+                    <MudText Class="flex-grow-1 text-truncate">@travel.Name</MudText>
+                    @if (count > 0) { <MudText Typo="Typo.body2" Color="Color.Secondary">@count</MudText> }
+                    <div @onclick:stopPropagation="true" class="d-inline-flex">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                       OnClick="@(() => OnEditTravelClicked.InvokeAsync(travel))" Title="Modifier" />
+                    </div>
+                </MudStack>
+            </MudPaper>
+        }
+
+        @if (Travels.Any(t => t.IsArchived))
+        {
+            <MudPaper Outlined="true" Class="@PillClass(IsSelected(null, "archived"))" @onclick="@(() => OnFilterChanged.InvokeAsync((null, "archived")))">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                    <MudIcon Icon="@(IsSelected(null, "archived") ? Icons.Material.Filled.Archive : Icons.Material.Outlined.Archive)"
+                             Color="@(IsSelected(null, "archived") ? Color.Primary : Color.Default)" Size="Size.Small" Class="ma-2" />
+                    <MudText Class="flex-grow-1">Archivés</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="pr-3">@Travels.Count(t => t.IsArchived)</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+    </MudStack>
+
+    @* ── Filtres ── *@
+    <MudDivider Class="my-3" />
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+        <MudText Typo="Typo.h6">Filtres</MudText>
+        @if (HasActiveFilters)
+        {
+            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary"
+                       OnClick="ResetSecondaryFilters" StartIcon="@Icons.Material.Filled.FilterAltOff">
+                Réinitialiser
+            </MudButton>
+        }
+    </MudStack>
+
+    @* Statut *@
+    <MudText Typo="Typo.subtitle2" Class="px-1 pt-2">Statut</MudText>
+    <MudStack Spacing="2">
+        @foreach (var (status, label, color) in StatusFilters)
+        {
+            var isActive = SelectedStatuses.Contains(status);
+            var count    = StatusCounts.GetValueOrDefault(status, 0);
+            <MudPaper Outlined="true" Class="@PillClass(isActive)" @onclick="@(() => ToggleStatusFilter(status))">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                    <MudIcon Icon="@(isActive ? Icons.Material.Filled.Circle : Icons.Material.Outlined.Circle)"
+                             Color="@color" Size="Size.Small" Class="ma-2" />
+                    <MudText Class="flex-grow-1">@label</MudText>
+                    @if (count > 0) { <MudText Typo="Typo.body2" Color="Color.Secondary" Class="pr-3">@count</MudText> }
+                </MudStack>
+            </MudPaper>
+        }
+    </MudStack>
+
+    @* Catégories *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="px-1 pt-2">
+        <MudText Typo="Typo.subtitle2">Catégories</MudText>
+        <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Primary" Size="Size.Small"
+                       OnClick="OnCreateCategoryClicked" Title="Créer une catégorie" />
+    </MudStack>
+
+    @if (Categories.Any())
+    {
+        <MudStack Spacing="2">
+            @foreach (var category in Categories.OrderBy(c => c.Name))
+            {
+                var isActive  = SelectedCategoryIds.Contains(category.Id);
+                var count     = CategoryCounts.GetValueOrDefault(category.Id, 0);
+                var hasColor  = !string.IsNullOrWhiteSpace(category.Color);
+                var iconStyle = hasColor ? $"color: {category.Color};" : string.Empty;
+                var icon      = isActive
+                    ? (hasColor ? Icons.Material.Filled.Circle   : Icons.Material.Filled.Label)
+                    : (hasColor ? Icons.Material.Outlined.Circle : Icons.Material.Outlined.Label);
+                <MudPaper Outlined="true" Class="@PillClass(isActive)" @onclick="@(() => ToggleCategoryFilter(category.Id))">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                        <MudIcon Icon="@icon" Size="Size.Small" Style="@iconStyle" Class="ma-2" />
+                        <MudText Class="flex-grow-1 text-truncate">@category.Name</MudText>
+                        @if (count > 0) { <MudText Typo="Typo.body2" Color="Color.Secondary" Class="pr-3">@count</MudText> }
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudStack>
+    }
+    else
+    {
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="px-1 py-2">
+            Aucune catégorie. Cliquez sur + pour en créer.
+        </MudText>
+    }
+
+</MudStack>
+
+@code {
+    [Parameter] public List<TravelDto> Travels { get; set; } = [];
+    [Parameter] public List<CategoryDto> Categories { get; set; } = [];
+    [Parameter] public Dictionary<int, int> SummariesCount { get; set; } = new();
+    [Parameter] public Dictionary<int, int> CategoryCounts { get; set; } = new();
+    [Parameter] public Dictionary<SummaryStatus, int> StatusCounts { get; set; } = new();
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public int UnclassifiedCount { get; set; }
+    [Parameter] public int? SelectedTravelId { get; set; }
+    [Parameter] public string SelectedFilterType { get; set; } = "all";
+    [Parameter] public HashSet<int> SelectedCategoryIds { get; set; } = new();
+    [Parameter] public HashSet<SummaryStatus> SelectedStatuses { get; set; } = new();
+    [Parameter] public EventCallback<(int? travelId, string filterType)> OnFilterChanged { get; set; }
+    [Parameter] public EventCallback<HashSet<int>> OnCategoryFiltersChanged { get; set; }
+    [Parameter] public EventCallback<HashSet<SummaryStatus>> OnStatusFiltersChanged { get; set; }
+    [Parameter] public EventCallback OnCreateTravelClicked { get; set; }
+    [Parameter] public EventCallback<TravelDto> OnEditTravelClicked { get; set; }
+    [Parameter] public EventCallback OnCreateCategoryClicked { get; set; }
+
+    private bool HasActiveFilters => SelectedCategoryIds.Any() || SelectedStatuses.Any();
+
+    private static readonly (SummaryStatus, string, Color)[] StatusFilters =
+    [
+        (SummaryStatus.ToReview, "À consulter", Color.Default),
+        (SummaryStatus.Reviewed, "Consulté",    Color.Info),
+        (SummaryStatus.Selected, "Retenu",      Color.Success),
+        (SummaryStatus.Rejected, "Écarté",      Color.Error),
+    ];
+
+    private bool IsSelected(int? travelId, string filterType) =>
+        SelectedFilterType == filterType && (filterType != "travel" || SelectedTravelId == travelId);
+
+    private static string PillClass(bool isActive) =>
+        $"pa-1 rounded-xl cursor-pointer{(isActive ? " mud-border-primary" : "")}";
+
+    private async Task ToggleCategoryFilter(int categoryId)
+    {
+        var newSet = new HashSet<int>(SelectedCategoryIds);
+        if (!newSet.Add(categoryId)) newSet.Remove(categoryId);
+        await OnCategoryFiltersChanged.InvokeAsync(newSet);
+    }
+
+    private async Task ToggleStatusFilter(SummaryStatus status)
+    {
+        var newSet = new HashSet<SummaryStatus>(SelectedStatuses);
+        if (!newSet.Add(status)) newSet.Remove(status);
+        await OnStatusFiltersChanged.InvokeAsync(newSet);
+    }
+
+    private async Task ResetSecondaryFilters()
+    {
+        await OnCategoryFiltersChanged.InvokeAsync([]);
+        await OnStatusFiltersChanged.InvokeAsync([]);
+    }
+}

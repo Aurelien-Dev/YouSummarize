@@ -1,0 +1,207 @@
+@page "/debug/test-login"
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using YouSummarize.Data
+
+@inject ILogger<TestLogin> Logger
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>Debug Login | YouSummarize</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+    <MudPaper Elevation="4" Class="pa-8">
+        <MudStack Spacing="4">
+            <MudText Typo="Typo.h4" Align="Align.Center">🧪 Test Login API - POC</MudText>
+            <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
+                POC : Appel direct de SignInManager depuis Blazor Server
+            </MudText>
+
+            @* Affichage de l'état d'authentification actuel *@
+            <MudAlert Severity="Severity.Info" Dense="true">
+                <MudText Typo="Typo.caption">
+                    <strong>État actuel :</strong> @(authState?.User?.Identity?.IsAuthenticated == true ? "✅ Authentifié" : "❌ Non authentifié")
+                    @if (authState?.User?.Identity?.IsAuthenticated == true)
+                    {
+                        <br />
+                        <strong>Nom :</strong> @authState.User.Identity.Name
+                        <br />
+                        <strong>Rôles :</strong> @string.Join(", ", authState.User.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value))
+                    }
+                </MudText>
+            </MudAlert>
+
+            @if (!string.IsNullOrEmpty(debugMessage))
+            {
+                <MudAlert Severity="Severity.Info">@debugMessage</MudAlert>
+            }
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <MudAlert Severity="Severity.Error">@errorMessage</MudAlert>
+            }
+
+            <EditForm Model="Input" OnValidSubmit="TestLoginAsync">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger" />
+
+                <MudStack Spacing="3">
+                    <MudTextField @bind-Value="Input.Email" 
+                                  Label="Email" 
+                                  Variant="Variant.Outlined"
+                                  For="@(() => Input.Email)" />
+
+                    <MudTextField @bind-Value="Input.Password" 
+                                  Label="Mot de passe" 
+                                  Variant="Variant.Outlined"
+                                  InputType="InputType.Password"
+                                  For="@(() => Input.Password)" />
+
+                    <MudButton ButtonType="ButtonType.Submit" 
+                               Variant="Variant.Filled" 
+                               Color="Color.Primary" 
+                               FullWidth="true"
+                               Disabled="isLoading">
+                        @if (isLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <text>Test en cours...</text>
+                        }
+                        else
+                        {
+                            <text>Tester le login (POC)</text>
+                        }
+                    </MudButton>
+                </MudStack>
+            </EditForm>
+
+            <MudDivider />
+
+            <MudText Typo="Typo.caption" Align="Align.Center">
+                Appelle SignInManager directement (pas d'API), puis recharge la page
+            </MudText>
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private string? errorMessage;
+    private string? debugMessage;
+    private bool isLoading;
+    private AuthenticationState? authState;
+
+    private InputModel Input { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Récupérer l'état d'authentification au chargement
+        authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        // Vérifier si HttpContext est disponible
+        var httpContext = HttpContextAccessor.HttpContext;
+        Logger.LogInformation("HttpContext disponible : {Available}", httpContext != null);
+        if (httpContext != null)
+        {
+            Logger.LogInformation("HttpContext Connection ID: {ConnectionId}", httpContext.Connection.Id);
+        }
+    }
+
+    private async Task TestLoginAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        debugMessage = null;
+
+        try
+        {
+            // Vérifier HttpContext
+            var httpContext = HttpContextAccessor.HttpContext;
+            debugMessage = $"📤 Étape 1/3 : HttpContext {(httpContext != null ? "✅ Disponible" : "❌ NULL")}";
+            StateHasChanged();
+            await Task.Delay(100);
+
+            if (httpContext == null)
+            {
+                errorMessage = "❌ ERREUR CRITIQUE : HttpContext n'est pas disponible dans InteractiveServer";
+                Logger.LogError("HttpContext is null in InteractiveServer component - cannot set cookies");
+                return;
+            }
+
+            debugMessage = "📤 Étape 2/3 : Appel direct de SignInManager...";
+            StateHasChanged();
+            await Task.Delay(100);
+
+            // 🔑 SOLUTION : Appeler SignInManager DIRECTEMENT depuis le composant Blazor
+            // Cela définit les cookies correctement dans le contexte HTTP actuel
+            var result = await SignInManager.PasswordSignInAsync(
+                Input.Email, 
+                Input.Password, 
+                isPersistent: false, 
+                lockoutOnFailure: false);
+
+            debugMessage = $"📥 Étape 3/3 : Résultat reçu";
+            StateHasChanged();
+
+            if (result.Succeeded)
+            {
+                Logger.LogInformation("✅ Login réussi pour {Email}", Input.Email);
+
+                // Vérifier si les cookies sont définis
+                var cookies = httpContext.Response.Headers["Set-Cookie"];
+                Logger.LogInformation("Cookies définis : {Count}", cookies.Count);
+
+                debugMessage = "✅ Login OK ! Reconnexion du circuit Blazor...";
+                StateHasChanged();
+                await Task.Delay(300);
+
+                // Forcer une reconnexion complète pour que le nouveau circuit récupère les cookies
+                await JSRuntime.InvokeVoidAsync("blazorForceReconnect", "/auth-debug");
+            }
+            else if (result.RequiresTwoFactor)
+            {
+                errorMessage = "❌ Authentification à deux facteurs requise";
+                debugMessage = null;
+            }
+            else if (result.IsLockedOut)
+            {
+                Logger.LogWarning("❌ Compte verrouillé pour {Email}", Input.Email);
+                errorMessage = "❌ Compte verrouillé";
+                debugMessage = null;
+            }
+            else
+            {
+                Logger.LogWarning("❌ Échec de connexion pour {Email}", Input.Email);
+                errorMessage = "❌ Email ou mot de passe incorrect";
+                debugMessage = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "❌ Exception inattendue lors du login");
+            errorMessage = $"❌ Erreur: {ex.Message}";
+            debugMessage = null;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private sealed class InputModel
+    {
+        [Required(ErrorMessage = "Email requis")]
+        [EmailAddress(ErrorMessage = "Format email invalide")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Mot de passe requis")]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = "";
+    }
+}

@@ -1,0 +1,218 @@
+<MudPaper Elevation="2" Class="pa-4 h-100">
+    <MudStack Spacing="3">
+        <MudTextField @bind-Value="SearchText"
+                      Label="Rechercher un résumé"
+                      Variant="Variant.Outlined"
+                      Placeholder="Titre ou contenu..."
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Immediate="true"
+                      Clearable="true"
+                      OnClearButtonClick="@(() => OnSearchChanged.InvokeAsync(string.Empty))"
+                      DebounceInterval="300"
+                      OnDebounceIntervalElapsed="@(() => OnSearchChanged.InvokeAsync(SearchText))" />
+
+        <MudText Typo="Typo.subtitle2" Color="Color.Secondary">
+            @FilteredSummaries.Count résumé(s)
+        </MudText>
+
+        <MudDivider />
+
+        @if (!FilteredSummaries.Any())
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="my-8">
+                <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
+                    Aucun résumé ne correspond aux critères.
+                </MudText>
+            </MudStack>
+        }
+        else
+        {
+            <MudContainer MaxWidth="MaxWidth.False" Class="overflow-y-auto" Style="max-height: 60vh;">
+                <MudStack Spacing="4">
+                    @foreach (var summary in FilteredSummaries.OrderByDescending(x => x.CreatedDate))
+                    {
+                        var cardClass = SelectedSummaryId == summary.Id ? "mud-theme-primary pa-5 cursor-pointer" : "pa-5 cursor-pointer";
+                        <MudPaper Class="@cardClass" @onclick="@(() => OnSummarySelected.InvokeAsync(summary))">
+                            <MudStack Row="true" Spacing="3">
+
+                                @* <MudPaper Elevation="0" Class="d-flex align-center justify-center rounded" Style="width: 100%; aspect-ratio: 16/9;">
+                                    <MudIcon Icon="@Icons.Custom.Brands.YouTube" Color="Color.Error" Size="Size.Large" />
+                                </MudPaper> *@
+                                @* Left section: Thumbnail *@
+                                <MudImage Src="@(summary.ThumbnailUrl ?? GetThumbnailUrl(summary.Url))"
+                                          Alt="@summary.Title"
+                                          Class="rounded"
+                                          Width="150"
+                                          ObjectFit="ObjectFit.Contain" />
+
+                                
+                                @* Right section: Content *@
+                                <MudStack Spacing="3" Justify="Justify.SpaceBetween" Class="flex-grow-1" Style="min-width: 0;">
+                                    @* Top: Title *@
+                                    <MudText Typo="Typo.subtitle1">
+                                        @summary.Title
+                                    </MudText>
+
+                                    @* Middle: Category chips *@
+                                    @if (summary.CategoryNames.Any())
+                                    {
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="flex-wrap">
+                                            @for (int i = 0; i < Math.Min(3, summary.CategoryNames.Count); i++)
+                                            {
+                                                var categoryName = summary.CategoryNames[i];
+                                                var categoryColor = summary.CategoryColors.ElementAtOrDefault(i);
+                                                var iconStyle = !string.IsNullOrWhiteSpace(categoryColor) ? $"color: {categoryColor}; font-size: 10px;" : "font-size: 10px;";
+                                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text">
+                                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                        @if (!string.IsNullOrWhiteSpace(categoryColor))
+                                                        {
+                                                            <MudIcon Icon="@Icons.Material.Filled.Circle" Size="Size.Small" Style="@iconStyle" />
+                                                        }
+                                                        <span>@categoryName</span>
+                                                    </MudStack>
+                                                </MudChip>
+                                            }
+                                            @if (summary.CategoryNames.Count > 3)
+                                            {
+                                                <MudChip T="string"
+                                                         Size="Size.Small"
+                                                         Color="Color.Default"
+                                                         Variant="Variant.Text">
+                                                    +@(summary.CategoryNames.Count - 3)
+                                                </MudChip>
+                                            }
+                                        </MudStack>
+                                    }
+
+                                    @* Bottom: Metadata line *@
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            Ajouté à :
+                                        </MudText>
+                                        @if (!string.IsNullOrWhiteSpace(summary.TravelName))
+                                        {
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                <MudIcon Icon="@Icons.Material.Filled.Luggage" Size="Size.Small" />
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                    @summary.TravelName
+                                                </MudText>
+                                            </MudStack>
+                                        }
+                                        else
+                                        {
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Size="Size.Small" />
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                    Non classé
+                                                </MudText>
+                                            </MudStack>
+                                        }
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            •
+                                        </MudText>
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                            <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" />
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                À venir
+                                            </MudText>
+                                        </MudStack>
+                                    </MudStack>
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </MudStack>
+            </MudContainer>
+        }
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter] public List<YoutubeResumeDto> FilteredSummaries { get; set; } = [];
+    [Parameter] public int? SelectedSummaryId { get; set; }
+    [Parameter] public string SearchText { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> OnSearchChanged { get; set; }
+    [Parameter] public EventCallback<YoutubeResumeDto> OnSummarySelected { get; set; }
+    [Parameter] public EventCallback<YoutubeResumeDto> OnDeleteSummaryClicked { get; set; }
+
+    private Dictionary<int, bool> thumbnailErrors = new();
+
+    private void HandleImageError(int summaryId)
+    {
+        thumbnailErrors[summaryId] = true;
+    }
+
+    private Color GetStatusColor(SummaryStatus status)
+    {
+        return status switch
+        {
+            SummaryStatus.ToReview => Color.Default,
+            SummaryStatus.Reviewed => Color.Info,
+            SummaryStatus.Selected => Color.Success,
+            SummaryStatus.Rejected => Color.Error,
+            _ => Color.Default
+        };
+    }
+
+    private string GetStatusLabel(SummaryStatus status)
+    {
+        return status switch
+        {
+            SummaryStatus.ToReview => "À consulter",
+            SummaryStatus.Reviewed => "Consulté",
+            SummaryStatus.Selected => "Retenu",
+            SummaryStatus.Rejected => "Écarté",
+            _ => "Inconnu"
+        };
+    }
+
+    private string? ExtractVideoId(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return null;
+        }
+
+        try
+        {
+            var uri = new Uri(url);
+
+            // Format: https://www.youtube.com/watch?v=VIDEO_ID ou https://youtube.com/watch?v=VIDEO_ID
+            if ((uri.Host.Contains("youtube.com") || uri.Host.Contains("www.youtube.com")) && uri.AbsolutePath == "/watch")
+            {
+                var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+                var videoId = query["v"];
+
+                if (!string.IsNullOrWhiteSpace(videoId))
+                {
+                    return videoId;
+                }
+            }
+
+            // Format: https://youtu.be/VIDEO_ID
+            if (uri.Host == "youtu.be" && uri.AbsolutePath.Length > 1)
+            {
+                return uri.AbsolutePath.TrimStart('/');
+            }
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private string GetThumbnailUrl(string url)
+    {
+        var videoId = ExtractVideoId(url);
+        if (string.IsNullOrWhiteSpace(videoId))
+        {
+            return string.Empty;
+        }
+
+        return $"https://img.youtube.com/vi/{videoId}/mqdefault.jpg";
+    }
+}

@@ -1,0 +1,83 @@
+@using YouSummarize.Dto.Models
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(Travel?.Id > 0 ? "Modifier le voyage" : "Créer un voyage")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="form" @bind-IsValid="@isValid">
+            <MudTextField @bind-Value="Travel.Name" 
+                          Label="Nom du voyage" 
+                          Variant="Variant.Outlined"
+                          Required="true"
+                          RequiredError="Le nom est obligatoire"
+                          MaxLength="200"
+                          Counter="200"
+                          Immediate="true"
+                          Class="mb-4" />
+
+            <MudDatePicker @bind-Date="startDate" 
+                          Label="Date de début (optionnelle)" 
+                          Variant="Variant.Outlined"
+                          Clearable="true"
+                          Class="mb-4" />
+
+            <MudDatePicker @bind-Date="endDate" 
+                          Label="Date de fin (optionnelle)" 
+                          Variant="Variant.Outlined"
+                          Clearable="true"
+                          Class="mb-4" />
+
+            <MudCheckBox @bind-Value="Travel.IsArchived" 
+                        Label="Archivé"
+                        Color="Color.Primary" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Annuler</MudButton>
+        <MudButton Color="Color.Primary" 
+                   Variant="Variant.Filled" 
+                   OnClick="Submit"
+                   Disabled="@(!isValid)">
+            @(Travel?.Id > 0 ? "Modifier" : "Créer")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public TravelDto Travel { get; set; } = new();
+
+    private MudForm form = default!;
+    private bool isValid;
+
+    // DateTime? pour les DatePicker (conversion depuis DateOnly?)
+    private DateTime? startDate
+    {
+        get => Travel.StartDate?.ToDateTime(TimeOnly.MinValue);
+        set => Travel.StartDate = value.HasValue ? DateOnly.FromDateTime(value.Value) : null;
+    }
+
+    private DateTime? endDate
+    {
+        get => Travel.EndDate?.ToDateTime(TimeOnly.MinValue);
+        set => Travel.EndDate = value.HasValue ? DateOnly.FromDateTime(value.Value) : null;
+    }
+
+    protected override void OnInitialized()
+    {
+        // Si Travel n'est pas fourni, créer un nouveau
+        Travel ??= new TravelDto();
+    }
+
+    private void Submit()
+    {
+        if (isValid)
+        {
+            MudDialog.Close(DialogResult.Ok(Travel));
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

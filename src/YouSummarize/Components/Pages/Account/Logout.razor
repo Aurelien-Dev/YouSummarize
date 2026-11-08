@@ -1,0 +1,45 @@
+@page "/logout"
+@* PAS de @rendermode = Static Server-Side Rendering (SSR) *@
+
+@inject NavigationManager NavigationManager
+
+<PageTitle>Déconnexion | YouSummarize</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+    <MudPaper Elevation="4" Class="pa-8">
+        <MudStack Spacing="4" AlignItems="AlignItems.Center">
+            <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Large" Color="Color.Warning" />
+
+            <MudText Typo="Typo.h4" Align="Align.Center">Déconnexion</MudText>
+
+            <MudText Typo="Typo.body1" Align="Align.Center">
+                Êtes-vous sûr de vouloir vous déconnecter ?
+            </MudText>
+
+            <MudStack Row="true" Spacing="2" Class="mt-2">
+                @* Formulaire HTML pour la déconnexion *@
+                <form method="post" action="/auth/logout">
+                    <MudButton ButtonType="ButtonType.Submit" 
+                               Variant="Variant.Filled" 
+                               Color="Color.Warning"
+                               Size="Size.Large"
+                               HtmlTag="button">
+                        Oui, me déconnecter
+                    </MudButton>
+                </form>
+
+                <MudButton Variant="Variant.Outlined" 
+                           Color="Color.Default"
+                           Size="Size.Large"
+                           Href="/"
+                           HtmlTag="a">
+                    Annuler
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    // Aucune logique nécessaire - tout est géré par le formulaire HTML POST
+}

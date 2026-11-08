@@ -1,0 +1,408 @@
+@using YouSummarize.Dto.Models
+@using YouSummarize.Components.Pages.TravelPlanner.Dialogs
+@inject IDialogService DialogService
+
+@if (Summary is not null)
+{
+    <MudPaper Elevation="2" Class="pa-4 h-100">
+        <MudStack Spacing="3">
+            @* Header with Title, Favorite, Edit, and Menu *@
+            <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween">
+                <MudText Typo="Typo.h5" Class="flex-grow-1">@Summary.Title</MudText>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                  Color="Color.Default" 
+                                  Size="Size.Medium"
+                                  OnClick="@OpenEditDialog"
+                                  Title="Modifier" />
+                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" 
+                             Color="Color.Default" 
+                             Size="Size.Medium"
+                             AnchorOrigin="Origin.BottomRight"
+                             TransformOrigin="Origin.TopRight">
+                        <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="@OpenEditDialog">Modifier</MudMenuItem>
+                        <MudDivider />
+                        <MudMenuItem Icon="@Icons.Material.Filled.Delete" 
+                                    IconColor="Color.Error"
+                                    OnClick="@HandleDelete">
+                            <MudText Color="Color.Error">Supprimer</MudText>
+                        </MudMenuItem>
+                    </MudMenu>
+                </MudStack>
+            </MudStack>
+
+            <MudDivider />
+
+            @* Travel Info Section *@
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Color="Color.Secondary" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Ajouté au voyage :</MudText>
+                @if (!string.IsNullOrWhiteSpace(Summary.TravelName))
+                {
+                    <MudChip T="string" 
+                             Icon="@Icons.Material.Filled.Luggage" 
+                             Size="Size.Small"
+                             Color="Color.Primary"
+                             Variant="Variant.Text">
+                        @Summary.TravelName
+                    </MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" 
+                             Icon="@Icons.Material.Filled.HelpOutline" 
+                             Size="Size.Small"
+                             Color="Color.Default"
+                             Variant="Variant.Text">
+                        Non classé
+                    </MudChip>
+                }
+            </MudStack>
+
+            @* Two-Column Layout: Resume + Organisation *@
+            <MudGrid Spacing="3">
+                @* Left Column: Resume Section *@
+                <MudItem xs="12" md="8">
+                    <MudPaper Elevation="1" Class="pa-4">
+                        <MudText Typo="Typo.subtitle2" GutterBottom="true">Résumé</MudText>
+                        <MudContainer MaxWidth="MaxWidth.False" Class="overflow-y-auto" Style="max-height: 60vh;">
+                            <MudMarkdown Value="@Summary.Resume" />
+                        </MudContainer>
+
+                        @* TODO: Future features - Uncomment when data is available
+                        <MudDivider Class="my-4" />
+
+                        <MudText Typo="Typo.subtitle2" GutterBottom="true">
+                            Lieux mentionnés (15)
+                        </MudText>
+                        <MudStack Spacing="1">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" Color="Color.Primary" />
+                                <MudText Typo="Typo.body2">Lac Motosu (au pied du Mont Fuji)</MudText>
+                            </MudStack>
+                            ...
+                        </MudStack>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.ExpandMore">
+                            Voir les 7 autres lieux
+                        </MudButton>
+
+                        <MudDivider Class="my-4" />
+
+                        <MudText Typo="Typo.subtitle2" GutterBottom="true">
+                            Conseils utiles
+                        </MudText>
+                        <MudStack Spacing="1">
+                            <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success" />
+                                <MudText Typo="Typo.body2">Louer une voiture pour explorer les régions moins desservies.</MudText>
+                            </MudStack>
+                            ...
+                        </MudStack>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.ExpandMore">
+                            Voir plus de conseils
+                        </MudButton>
+                        *@
+                    </MudPaper>
+                </MudItem>
+
+                @* Right Column: Organisation + Statistiques *@
+                <MudItem xs="12" md="4">
+                    <MudStack Spacing="3">
+                        @* Organisation Panel *@
+                        <MudPaper Elevation="1" Class="pa-4">
+                            <MudText Typo="Typo.subtitle2" GutterBottom="true">Organisation</MudText>
+                            <MudStack Spacing="3">
+                                @* Pays détecté - V3.1 *@
+                                <div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" GutterBottom="true">
+                                        Pays détecté
+                                        @if (Summary.AiMetadataStatus == AiMetadataStatus.Failed)
+                                        {
+                                            <MudTooltip Text="@Summary.AiMetadataError">
+                                                <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Small" Color="Color.Error" />
+                                            </MudTooltip>
+                                        }
+                                    </MudText>
+
+                                    @if (Summary.AiMetadataStatus == AiMetadataStatus.NotAnalyzed)
+                                    {
+                                        <MudText Typo="Typo.body2" Color="Color.Tertiary" Class="fst-italic">Non analysé</MudText>
+                                    }
+                                    else if (Summary.AiMetadataStatus == AiMetadataStatus.Failed)
+                                    {
+                                        <MudText Typo="Typo.body2" Color="Color.Error">Analyse impossible</MudText>
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(Summary.MainCountryName))
+                                    {
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                            <MudText Typo="Typo.body2">@Summary.MainCountryName</MudText>
+                                            @if (Summary.MainCountryConfidence.HasValue)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Info">
+                                                    @($"{Summary.MainCountryConfidence.Value:P0}")
+                                                </MudChip>
+                                            }
+                                        </MudStack>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2" Color="Color.Tertiary" Class="fst-italic">Non déterminé</MudText>
+                                    }
+                                </div>
+
+                                @* Catégories *@
+                                <div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" GutterBottom="true">Catégories</MudText>
+                                    @if (Summary.CategoryNames.Any())
+                                    {
+                                        <MudStack Spacing="1">
+                                            @for (int i = 0; i < Summary.CategoryNames.Count; i++)
+                                            {
+                                                var categoryName = Summary.CategoryNames[i];
+                                                var categoryColor = i < Summary.CategoryColors.Count ? Summary.CategoryColors[i] : null;
+                                                var iconStyle = !string.IsNullOrWhiteSpace(categoryColor) ? $"color: {categoryColor}; font-size: 8px;" : "font-size: 8px;";
+
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                    @if (!string.IsNullOrWhiteSpace(categoryColor))
+                                                    {
+                                                        <MudIcon Icon="@Icons.Material.Filled.Circle" Size="Size.Small" Style="@iconStyle" />
+                                                    }
+                                                    <MudText Typo="Typo.body2">@categoryName</MudText>
+                                                </MudStack>
+                                            }
+                                        </MudStack>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2" Color="Color.Tertiary" Class="fst-italic">Aucune catégorie</MudText>
+                                    }
+                                </div>
+
+                                @* Statut *@
+                                <div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" GutterBottom="true">Statut</MudText>
+                                    <MudChip T="string" 
+                                             Size="Size.Small" 
+                                             Color="@GetStatusColor(Summary.Status)" 
+                                             Variant="Variant.Text">
+                                        <MudIcon Icon="@Icons.Material.Filled.Circle" Size="Size.Small" Class="mr-1" />
+                                        @GetStatusLabel(Summary.Status)
+                                    </MudChip>
+                                </div>
+
+                                @* Ajouté le *@
+                                <div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" GutterBottom="true">Ajouté le</MudText>
+                                    <MudText Typo="Typo.body2">@Summary.CreatedDate.ToLocalTime().ToString("dd/MM/yyyy à HH:mm")</MudText>
+                                </div>
+
+                                @* Durée de la vidéo - Placeholder *@
+                                <div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" GutterBottom="true">Durée de la vidéo</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Tertiary" Class="fst-italic">À venir</MudText>
+                                </div>
+
+                                @* Chaîne - Placeholder *@
+                                <div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" GutterBottom="true">Chaîne</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Tertiary" Class="fst-italic">À venir</MudText>
+                                </div>
+
+                                @* Ouvrir sur YouTube Button *@
+                                <MudButton Variant="Variant.Outlined" 
+                                          Color="Color.Error" 
+                                          StartIcon="@Icons.Custom.Brands.YouTube"
+                                          Href="@Summary.Url" 
+                                          Target="_blank"
+                                          FullWidth="true">
+                                    Ouvrir sur YouTube
+                                </MudButton>
+                            </MudStack>
+                        </MudPaper>
+
+                        @* Statistiques Panel *@
+                        <MudPaper Elevation="1" Class="pa-4">
+                            <MudText Typo="Typo.subtitle2" GutterBottom="true">Statistiques</MudText>
+                            <MudStack Spacing="2">
+                                @* Lieux détectés *@
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" Color="Color.Default" />
+                                    <MudText Typo="Typo.body2" Class="flex-grow-1">Lieux détectés</MudText>
+                                    <MudText Typo="Typo.body2">-</MudText>
+                                </MudStack>
+
+                                @* Conseils extraits *@
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudIcon Icon="@Icons.Material.Filled.Lightbulb" Size="Size.Small" Color="Color.Default" />
+                                    <MudText Typo="Typo.body2" Class="flex-grow-1">Conseils extraits</MudText>
+                                    <MudText Typo="Typo.body2">-</MudText>
+                                </MudStack>
+
+                                @* Mots-clés *@
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudIcon Icon="@Icons.Material.Filled.Tag" Size="Size.Small" Color="Color.Default" />
+                                    <MudText Typo="Typo.body2" Class="flex-grow-1">Mots-clés</MudText>
+                                    <MudText Typo="Typo.body2">-</MudText>
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    <MudPaper Elevation="1" Class="pa-4 h-100">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="my-8">
+            <MudIcon Icon="@Icons.Material.Filled.VideoLibrary" Size="Size.Large" />
+            <MudText Typo="Typo.body1" Align="Align.Center" Color="Color.Secondary">
+                Sélectionnez un résumé dans la liste pour l'afficher ici.
+            </MudText>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public YoutubeResumeDto? Summary { get; set; }
+    [Parameter] public List<TravelDto> Travels { get; set; } = [];
+    [Parameter] public List<CategoryDto> Categories { get; set; } = [];
+    [Parameter] public EventCallback<YoutubeResumeDto> OnTravelChanged { get; set; }
+    [Parameter] public EventCallback<(YoutubeResumeDto, SummaryStatus)> OnStatusChanged { get; set; }
+    [Parameter] public EventCallback<(YoutubeResumeDto, List<int>)> OnCategoriesChanged { get; set; }
+    [Parameter] public EventCallback<YoutubeResumeDto> OnTitleChanged { get; set; }
+    [Parameter] public EventCallback<YoutubeResumeDto> OnDeleteClicked { get; set; }
+
+    private int? selectedTravelId;
+    private SummaryStatus selectedStatus;
+    private HashSet<int> selectedCategoryIds = new();
+
+    protected override void OnParametersSet()
+    {
+        if (Summary != null)
+        {
+            selectedTravelId = Summary.TravelId;
+            selectedStatus = Summary.Status;
+            selectedCategoryIds = Summary.CategoryIds.ToHashSet();
+        }
+    }
+
+    private async Task SaveTravelChange()
+    {
+        if (Summary != null)
+        {
+            Summary.TravelId = selectedTravelId;
+            await OnTravelChanged.InvokeAsync(Summary);
+        }
+    }
+
+    private async Task HandleDelete()
+    {
+        if (Summary != null)
+        {
+            await OnDeleteClicked.InvokeAsync(Summary);
+        }
+    }
+
+    private async Task OnStatusSelectedValuesChanged(SummaryStatus newStatus)
+    {
+        if (Summary != null && newStatus != selectedStatus)
+        {
+            selectedStatus = newStatus;
+            await OnStatusChanged.InvokeAsync((Summary, newStatus));
+        }
+    }
+
+    private async Task OnCategorySelectedValuesChanged(IEnumerable<int> newCategoryIds)
+    {
+        if (Summary != null)
+        {
+            var categoryIdList = newCategoryIds.ToList();
+            selectedCategoryIds = categoryIdList.ToHashSet();
+            await OnCategoriesChanged.InvokeAsync((Summary, categoryIdList));
+        }
+    }
+
+    private async Task OpenEditDialog()
+    {
+        if (Summary == null) return;
+
+        var parameters = new DialogParameters<EditSummaryDialog>
+        {
+            { x => x.Summary, Summary },
+            { x => x.Travels, Travels },
+            { x => x.Categories, Categories }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<EditSummaryDialog>("", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is EditSummaryDialog.EditedSummaryData editedData)
+        {
+            // Update the title if changed
+            if (Summary.Title != editedData.Title)
+            {
+                Summary.Title = editedData.Title;
+                await OnTitleChanged.InvokeAsync(Summary);
+            }
+
+            // Update travel if changed
+            if (Summary.TravelId != editedData.TravelId)
+            {
+                Summary.TravelId = editedData.TravelId;
+                Summary.TravelName = editedData.TravelId.HasValue 
+                    ? Travels.FirstOrDefault(t => t.Id == editedData.TravelId.Value)?.Name 
+                    : null;
+                await OnTravelChanged.InvokeAsync(Summary);
+            }
+
+            // Update status if changed
+            if (Summary.Status != editedData.Status)
+            {
+                Summary.Status = editedData.Status;
+                await OnStatusChanged.InvokeAsync((Summary, editedData.Status));
+            }
+
+            // Update categories if changed
+            if (!Summary.CategoryIds.SequenceEqual(editedData.CategoryIds))
+            {
+                Summary.CategoryIds = editedData.CategoryIds;
+                Summary.CategoryNames = Categories
+                    .Where(c => editedData.CategoryIds.Contains(c.Id))
+                    .Select(c => c.Name)
+                    .ToList();
+                Summary.CategoryColors = Categories
+                    .Where(c => editedData.CategoryIds.Contains(c.Id))
+                    .Select(c => c.Color)
+                    .ToList();
+                await OnCategoriesChanged.InvokeAsync((Summary, editedData.CategoryIds));
+            }
+        }
+    }
+
+    private Color GetStatusColor(SummaryStatus status)
+    {
+        return status switch
+        {
+            SummaryStatus.ToReview => Color.Default,
+            SummaryStatus.Reviewed => Color.Info,
+            SummaryStatus.Selected => Color.Success,
+            SummaryStatus.Rejected => Color.Error,
+            _ => Color.Default
+        };
+    }
+
+    private string GetStatusLabel(SummaryStatus status)
+    {
+        return status switch
+        {
+            SummaryStatus.ToReview => "À consulter",
+            SummaryStatus.Reviewed => "Consulté",
+            SummaryStatus.Selected => "Retenu",
+            SummaryStatus.Rejected => "Écarté",
+            _ => "Inconnu"
+        };
+    }
+}

@@ -1,0 +1,83 @@
+@page "/debug/test-login-static"
+@* PAS de @rendermode = Static Server-Side Rendering (SSR) *@
+
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>Debug Login Static | YouSummarize</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+    <MudPaper Elevation="4" Class="pa-8">
+        <MudStack Spacing="4">
+            <MudText Typo="Typo.h4" Align="Align.Center">🧪 Test Login Static (Form HTML)</MudText>
+            <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
+                Login avec formulaire HTML pur (POST direct vers endpoint)
+            </MudText>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <MudAlert Severity="Severity.Error">@errorMessage</MudAlert>
+            }
+
+            @* Formulaire HTML pur qui POST vers l'endpoint *@
+            <form method="post" action="/account/perform-login">
+                <MudStack Spacing="3">
+                    <MudTextField @bind-Value="emailValue" 
+                                  Label="Email" 
+                                  Variant="Variant.Outlined"
+                                  InputType="InputType.Email"
+                                  Required="true" />
+                    <input type="hidden" name="email" value="@emailValue" />
+
+                    <MudTextField @bind-Value="passwordValue" 
+                                  Label="Mot de passe" 
+                                  Variant="Variant.Outlined"
+                                  InputType="InputType.Password"
+                                  Required="true" />
+                    <input type="hidden" name="password" value="@passwordValue" />
+
+                    <input type="hidden" name="returnUrl" value="/auth-debug" />
+
+                    <MudButton ButtonType="ButtonType.Submit" 
+                               Variant="Variant.Filled" 
+                               Color="Color.Primary" 
+                               FullWidth="true"
+                               HtmlTag="button">
+                        Tester le login (Form POST)
+                    </MudButton>
+                </MudStack>
+            </form>
+
+            <MudDivider />
+
+            <MudText Typo="Typo.caption" Align="Align.Center">
+                Formulaire HTML qui POST directement vers /account/perform-login (définit les cookies correctement)
+            </MudText>
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private string? errorMessage;
+    private string emailValue = "";
+    private string passwordValue = "";
+
+    protected override void OnInitialized()
+    {
+        // Récupérer les paramètres de query string pour afficher les erreurs
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var error = queryParams["error"];
+
+        errorMessage = error switch
+        {
+            "empty" => "❌ Email et mot de passe requis",
+            "2fa" => "❌ Authentification à deux facteurs requise",
+            "locked" => "❌ Compte verrouillé",
+            "invalid" => "❌ Email ou mot de passe incorrect",
+            _ => null
+        };
+    }
+
+    [Inject]
+    private NavigationManager NavigationManager { get; set; } = default!;
+}
