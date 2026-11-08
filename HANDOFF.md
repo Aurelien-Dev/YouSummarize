@@ -2,6 +2,41 @@
 
 Date de la note : 2026-11-08.
 
+## Mise a jour : base metier independante
+
+La suite de cette note decrit le split initial et conserve ses constats
+historiques. La base metier a ensuite ete creee et les donnees copiees par
+l'utilisateur, qui confirme localement une connexion et une modification
+enregistree dans la nouvelle base.
+
+- `ApplicationDbContext` est utilise pour Identity, comptes, roles et approbations.
+  Le snapshot historique complet reste une reference ; le modele EF actuel
+  ne contient plus les mappings recettes et n'est donc pas complet.
+- Un garde-fou bloque `Migrate`, `MigrateAsync`, la generation de scripts EF et
+  le controle des changements de modele pour `ApplicationDbContext`, y compris
+  via les outils EF. Ce n'est pas une restriction PostgreSQL : SQL manuel,
+  `EnsureCreated` et autres contextes/outils ne sont pas bloques.
+- `YouSummarizeDbContext` contient uniquement les sept tables metier/Data Protection.
+  Les quatre repositories metier et Data Protection utilisent ce nouveau contexte.
+- `YOUSUMMARIZE_DB_DATABASE=yousummarizedb` designe la base metier sur le meme
+  serveur et avec les memes identifiants DB_*. S'il est absent, l'application
+  utilise `yousummarizedb` par defaut ; s'il est explicitement vide, elle utilise
+  `DB_DATABASE` pour les deux contextes avec un avertissement. Compose transmet
+  une chaine vide si la variable n'est pas definie.
+- La migration initiale `Migrations/YouSummarize` est propre a la nouvelle base.
+  Ne jamais appliquer de migration du contexte partage. Toujours preciser
+  `--context ApplicationDbContext` ou `--context YouSummarizeDbContext` aux outils EF.
+- Les scripts ponctuels de transfert ont ete retires apres utilisation, a la
+  demande de l'utilisateur. La migration EF et les checks hors base dans
+  [tests/YouSummarize.Data.Checks](tests/YouSummarize.Data.Checks) restent.
+  Les comptes et tables source n'ont pas ete supprimes ; la consommation IA
+  et les cles Data Protection sont reparties vides.
+- Le retour arriere est documente dans [README.md](README.md). Ne pas modifier
+  la configuration privee ou les bases sans demande explicite.
+- Avant un deploiement Docker, renseigner la variable metier et verifier les
+  parcours non encore confirmes, dont la generation de resumes. La sauvegarde
+  et les CSV issus du transfert sont prives et ne doivent pas etre commites.
+
 ## 1. Situation et perimetre
 
 YouSummarize genere des resumes de videos YouTube pour preparer des voyages.
@@ -263,7 +298,7 @@ Controles sans application ni connexion a la base :
 ```powershell
 dotnet build src/YouSummarize/YouSummarize.csproj
 dotnet publish src/YouSummarize/YouSummarize.csproj -c Release
-dotnet ef migrations has-pending-model-changes --project src/YouSummarize.Data --startup-project src/YouSummarize --no-build
+dotnet ef migrations has-pending-model-changes --context YouSummarizeDbContext --project src/YouSummarize.Data --startup-project src/YouSummarize --no-build
 docker build -t yousummarize:verification -f src/YouSummarize/Dockerfile src
 ```
 

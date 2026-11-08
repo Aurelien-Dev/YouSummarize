@@ -6,16 +6,6 @@ namespace YouSummarize.Data.Repository.Repositories;
 
 public class UserRepository(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager) : IUserRepository
 {
-    public async Task AddFavoriteRecipeAsync(string userEmail, RecipeEntity recipe)
-    {
-        var user = await userManager.FindByEmailAsync(userEmail);
-        if (user == null)
-            return;
-
-        user.Favorites.Add(recipe);
-        await userManager.UpdateAsync(user);
-    }
-
     public async Task AssignRoleAsync(string userEmail, string role)
     {
         var user = await userManager.FindByEmailAsync(userEmail);

@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor;
 using MudBlazor.Services;
+using Npgsql;
 using YouSummarize.ServicesExternal;
 using YouSummarize;
 using YouSummarize.Api;
@@ -110,6 +111,18 @@ var dbPassword = builder.Configuration["DB_PASSWORD"] ?? "PGUserPwd";
 
 var postgresCs = $"Host={serverUrl};Port={serverPort};Database={dbName};Username={dbUser};Password={dbPassword};Pooling=true";
 
+var businessDatabase = builder.Configuration["YOUSUMMARIZE_DB_DATABASE"] ?? "yousummarizedb";
+var separateBusinessDatabase = !string.IsNullOrWhiteSpace(businessDatabase);
+if (separateBusinessDatabase && string.Equals(businessDatabase, dbName, StringComparison.Ordinal))
+{
+    throw new InvalidOperationException("YOUSUMMARIZE_DB_DATABASE must differ from the shared Identity DB_DATABASE.");
+}
+
+var businessCs = new NpgsqlConnectionStringBuilder(postgresCs)
+{
+    Database = string.IsNullOrWhiteSpace(businessDatabase) ? dbName : businessDatabase
+}.ConnectionString;
+
 builder.Services.AddManagers(builder.Configuration);
 builder.Services.AddScoped<AiManager>();
 
@@ -125,9 +138,14 @@ builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
     options.UseNpgsql(postgresCs);
 }, ServiceLifetime.Scoped);
 
+builder.Services.AddDbContextFactory<YouSummarizeDbContext>(options =>
+{
+    options.UseNpgsql(businessCs);
+}, ServiceLifetime.Scoped);
+
 // Configure Data Protection to persist keys in PostgreSQL
 builder.Services.AddDataProtection()
-    .PersistKeysToDbContext<ApplicationDbContext>()
+    .PersistKeysToDbContext<YouSummarizeDbContext>()
     .SetApplicationName("YouSummarize"); // Important pour que toutes les instances partagent les mêmes clés
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
@@ -184,6 +202,15 @@ builder.Services.AddServerSideBlazor()
 builder.Logging.AddConsole();
 
 var app = builder.Build();
+
+if (separateBusinessDatabase)
+{
+    app.Logger.LogInformation("YouSummarize business data uses a separate database; Identity remains shared.");
+}
+else
+{
+    app.Logger.LogWarning("YOUSUMMARIZE_DB_DATABASE is not configured. Business data and Identity still use the existing shared database; no database switch has occurred.");
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

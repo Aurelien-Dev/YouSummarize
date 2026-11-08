@@ -20,6 +20,7 @@ services:
       - DB_HOST_URL=${DB_HOST_URL:-recettesfamille.data}
       - DB_HOST_PORT=${DB_HOST_PORT:-5432}
       - DB_DATABASE=${DB_DATABASE:-recettesfamilledb}
+      - YOUSUMMARIZE_DB_DATABASE=${YOUSUMMARIZE_DB_DATABASE:-}
       - DB_USERNAME=${DB_USERNAME:-pguser}
       - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD requis}
       - SMTP_PASSWORD=${SMTP_PASSWORD}

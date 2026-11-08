@@ -1,7 +1,8 @@
 # Configuration des Secrets - YouSummarize
 
-Les noms de variables restent compatibles avec RecettesFamille. Utiliser la base
-existante ; ne pas creer de base ou de compte PostgreSQL pour ce split.
+Les variables DB_* restent compatibles avec RecettesFamille et designent toujours
+la base existante des comptes. YOUSUMMARIZE_DB_DATABASE designe la base metier
+distincte deja preparee selon README.md.
 La configuration locale et les fichiers .env ne doivent jamais etre commites.
 Les secrets et variables du workflow doivent etre configures dans le depot
 YouSummarize ; ils ne sont pas automatiquement partages entre depots GitHub.
@@ -111,7 +112,8 @@ openssl rand -base64 32
 ---
 
 ### 9. DB_DATABASE
-**Description:** Nom de la base de données PostgreSQL
+**Description:** Nom de la base PostgreSQL existante des comptes et roles.
+Ne pas remplacer cette valeur par la nouvelle base metier.
 
 **Par défaut:** `recettesfamilledb`
 
@@ -149,11 +151,28 @@ openssl rand -base64 24
 
 ---
 
+### 13. YOUSUMMARIZE_DB_DATABASE
+**Description:** Nom de la base metier YouSummarize sur le meme serveur PostgreSQL.
+
+**Valeur recommandee:** `yousummarizedb`. Doit etre different de DB_DATABASE.
+Utilise DB_HOST_URL, DB_HOST_PORT, DB_USERNAME et DB_PASSWORD existants.
+Les comptes/roles restent dans DB_DATABASE ; aucune migration automatique.
+
+Si le parametre est absent, l'application utilise `yousummarizedb` par defaut.
+S'il est explicitement vide, les donnees metier et les cles restent dans
+DB_DATABASE, avec un avertissement dans les logs.
+
+**GitHub Actions:** variable de depot `YOUSUMMARIZE_DB_DATABASE`, transmise a .env
+et Compose. Compose transmet une chaine vide si la variable est absente : la
+renseigner explicitement pour utiliser la base metier.
+
+---
+
 ## 📋 Configuration par Environnement
 
 ### Développement Local
 
-Créer un fichier `appsettings.Local.json` dans `src/RecettesFamille/` :
+Créer un fichier `appsettings.Local.json` dans `src/YouSummarize/` :
 
 ```json
 {
@@ -173,12 +192,14 @@ Créer un fichier `appsettings.Local.json` dans `src/RecettesFamille/` :
 ```
 
 **Note:** Le fichier `appsettings.Local.json` est dans `.gitignore` et ne doit jamais être commité.
+Ce fichier est charge
+apres les variables d'environnement et peut remplacer leurs valeurs.
 
 ---
 
 ### Docker Compose
 
-Créer un fichier `.env` à la racine du projet (ou dans `src/RecettesFamille.Docker/`) :
+Créer un fichier `.env` prive dans `src/` :
 
 ```env
 OPENAI_SECRET=sk-...

@@ -1,6 +1,5 @@
 using AutoMapper;
 using YouSummarize.Data.EntityModel;
-using YouSummarize.Data.EntityModel.Blocks;
 using YouSummarize.Dto.Models;
 
 

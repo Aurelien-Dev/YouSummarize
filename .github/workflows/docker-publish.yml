@@ -43,6 +43,7 @@ jobs:
             DB_HOST_URL=${{ vars.DB_HOST_URL }}
             DB_HOST_PORT=${{ vars.DB_HOST_PORT }}
             DB_DATABASE=${{ vars.DB_DATABASE }}
+            YOUSUMMARIZE_DB_DATABASE=${{ vars.YOUSUMMARIZE_DB_DATABASE }}
             DB_USERNAME=${{ vars.DB_USERNAME }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}

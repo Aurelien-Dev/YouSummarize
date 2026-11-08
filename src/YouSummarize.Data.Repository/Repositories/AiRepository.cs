@@ -6,7 +6,7 @@ using YouSummarize.Dto.Models;
 
 namespace YouSummarize.Data.Repository.Repositories;
 
-public class AiRepository(IMapper mapper, IDbContextFactory<ApplicationDbContext> contextFactory) : IAiRepository
+public class AiRepository(IMapper mapper, IDbContextFactory<YouSummarizeDbContext> contextFactory) : IAiRepository
 {
 
     public async Task<PromptDto> GetPrompt(string promptName, CancellationToken cancellationToken = default)

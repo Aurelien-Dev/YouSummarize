@@ -7,7 +7,7 @@ using YouSummarize.Dto.Models;
 
 namespace YouSummarize.Data.Repository.Repositories;
 
-public class CategoryRepository(IServiceProvider serviceProvider, IDbContextFactory<ApplicationDbContext> contextFactory) : ICategoryRepository
+public class CategoryRepository(IServiceProvider serviceProvider, IDbContextFactory<YouSummarizeDbContext> contextFactory) : ICategoryRepository
 {
     public async Task<List<CategoryDto>> GetAll(CancellationToken cancellationToken = default)
     {

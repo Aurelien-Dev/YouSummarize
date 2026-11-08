@@ -41,15 +41,4 @@ public interface IUserRepository
     /// Assurez-vous que les données liées à l'utilisateur sont correctement gérées avant de l'appeler.
     /// </remarks>
     Task<IdentityResult> DeleteUserAsync(string userEmail);
-
-    /// <summary>
-    /// Ajoute une recette aux favoris de l'utilisateur.
-    /// </summary>
-    /// <param name="userEmail">L'adresse email de l'utilisateur auquel ajouter la recette favorite.</param>
-    /// <param name="recipe">La recette à ajouter dans la liste des favoris.</param>
-    /// <returns>Une tâche représentant l'opération asynchrone.</returns>
-    /// <remarks>
-    /// L'implémentation peut choisir d'ignorer l'ajout si la recette est déjà présente dans les favoris.
-    /// </remarks>
-    Task AddFavoriteRecipeAsync(string userEmail, RecipeEntity recipe);
 }

@@ -7,7 +7,7 @@ using YouSummarize.Dto.Models;
 
 namespace YouSummarize.Data.Repository.Repositories;
 
-public class TravelRepository(IServiceProvider serviceProvider, IDbContextFactory<ApplicationDbContext> contextFactory) : ITravelRepository
+public class TravelRepository(IServiceProvider serviceProvider, IDbContextFactory<YouSummarizeDbContext> contextFactory) : ITravelRepository
 {
     public async Task<List<TravelDto>> GetAll(CancellationToken cancellationToken = default)
     {

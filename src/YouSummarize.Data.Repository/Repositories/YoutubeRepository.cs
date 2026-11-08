@@ -7,7 +7,7 @@ using YouSummarize.Dto.Models;
 
 namespace YouSummarize.Data.Repository.Repositories;
 
-public class YoutubeRepository(IServiceProvider serviceProvider, IDbContextFactory<ApplicationDbContext> contextFactory) : IYoutubeRepository
+public class YoutubeRepository(IServiceProvider serviceProvider, IDbContextFactory<YouSummarizeDbContext> contextFactory) : IYoutubeRepository
 {
     public async Task<List<YoutubeResumeDto>> GetAllSummary(CancellationToken cancellationToken = default)
     {

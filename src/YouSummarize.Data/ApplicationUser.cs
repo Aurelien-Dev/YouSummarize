@@ -8,10 +8,6 @@ public class ApplicationUser : IdentityUser
 {
     public string AccountName { get; set; } = string.Empty;
 
-    public ICollection<RecipeEntity> Favorites { get; set; } = null!;
-
-    public ICollection<RecipeEntity> CreatedRecipes { get; set; } = [];
-
     /// <summary>
     /// Date et heure de la dernière connexion de l'utilisateur
     /// </summary>

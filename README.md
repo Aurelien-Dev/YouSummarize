@@ -24,28 +24,60 @@ desormais en production.
 
 - `src/YouSummarize.sln` : solution autonome
 - `src/YouSummarize` : front, endpoints et services
-- `src/YouSummarize.Data` : modele EF du schema partage et snapshot de reference
+- `src/YouSummarize.Data` : contexte Identity partage, contexte metier et snapshots EF
 - `src/YouSummarize.Dto` : DTOs voyages, resumes, categories et infrastructure IA
 - `src/YouSummarize.Data.Repository` : repositories et mappers propres a l'application
 - `src/YouSummarize.Docker` : Docker Compose sans service de base de donnees
 
-## Base de donnees existante
+## Bases de donnees
 
-Les deux applications utilisent la meme base PostgreSQL, les memes comptes et
-les memes roles. Aucune donnee n'a ete transferee, supprimee ou modifiee par le split.
+Les comptes, roles, profils et approbations restent dans la base PostgreSQL
+existante, via `ApplicationDbContext`. Son snapshot historique conserve le
+modele de reference complet, mais le modele EF actuel ne contient plus les
+entites recettes : il ne decrit donc pas toute la base partagee.
 
-Le modele EF complet et les relations Identity sont conserves pour correspondre
-au schema existant. Les entites recettes sont uniquement des mappings de
-compatibilite : il n'y a ni front, ni repository, ni service recettes dans cette
-solution. Le RAG recettes et ses dependances ont ete retires.
+Un garde-fou refuse l'application de migrations EF, la generation de scripts de
+migration et le controle des changements en attente pour `ApplicationDbContext`,
+en execution comme avec les outils EF. Cela ne protege pas contre du SQL manuel,
+`EnsureCreated`, un autre contexte ou un autre outil ; la protection durable
+exige aussi des droits PostgreSQL adaptes. Ne pas modifier le schema partage
+depuis YouSummarize et ne pas appliquer de migration a cette base.
 
-Seul ApplicationDbContextModelSnapshot est conserve dans les migrations.
-YouSummarize n'appelle ni Migrate, ni EnsureCreated, ni l'initialisation du RAG.
-Ne pas lancer database update ou creer une nouvelle base pour ce split.
+`YouSummarizeDbContext` contient uniquement voyages, resumes, categories, prompts,
+consommations IA et cles Data Protection. Tous les repositories metier et Data
+Protection utilisent ce contexte. Identity continue a utiliser `ApplicationDbContext`.
+
+Configuration des connexions :
+
+- `DB_*` continue de designer la base existante des comptes.
+- `YOUSUMMARIZE_DB_DATABASE=yousummarizedb` designe la base metier. Seul le nom
+  de base change : serveur, port et identifiants PostgreSQL restent ceux de `DB_*`.
+- Si le parametre est absent, l'application utilise `yousummarizedb` par defaut.
+  S'il est explicitement vide, les deux contextes utilisent encore `DB_DATABASE`
+  et un avertissement est journalise. Compose transmet une valeur vide si la
+  variable n'est pas definie : il faut donc la renseigner pour la base metier.
+- Un nom cible identique a `DB_DATABASE` est refuse lorsqu'il est explicitement configure.
+
+La migration initiale dans `Migrations/YouSummarize` concerne uniquement la
+nouvelle base. L'application n'appelle ni `Migrate`, ni `EnsureCreated` au demarrage.
 
 Les cookies et le nom Data Protection sont distincts : une reconnexion a
 YouSummarize est necessaire. Les comptes et roles restent partages, donc leur
 modification dans une application affecte egalement l'autre.
+
+La copie initiale et la bascule locale ont ete realisees ; l'utilisateur a
+confirme une connexion et une modification enregistree dans la nouvelle base.
+Le prompt `YoutubeResumeV3` faisait partie du transfert ; la consommation IA et
+les cles Data Protection sont reparties vides. Les tables et donnees source
+n'ont pas ete supprimees. Les scripts ponctuels de transfert ont ete retires
+apres cette operation ; la migration EF et son snapshot restent necessaires.
+
+Retour arriere : arreter uniquement YouSummarize et definir explicitement
+`YOUSUMMARIZE_DB_DATABASE` a une chaine vide pour retrouver l'ancienne base et ses
+cles. Le retrait du parametre ne suffit pas : la valeur par defaut est
+`yousummarizedb`. Le retour ne recopie pas les nouvelles ecritures de la cible :
+les sauvegarder et les reconcilier au prealable. Conserver les sauvegardes et
+CSV prives selon la politique de retention choisie ; ne pas les commiter.
 
 ## Prérequis
 
@@ -75,8 +107,9 @@ modification dans une application affecte egalement l'autre.
 ## Déploiement avec Docker
 
 1. Fournir un fichier src/.env prive avec les variables de SECRETS.md.
-2. Utiliser le reseau externe testnet existant et les memes parametres de base
-    que RecettesFamille. Ne pas recreer le serveur PostgreSQL ni son volume.
+2. Utiliser le reseau externe testnet existant. Garder DB_* pour les comptes ;
+    definir YOUSUMMARIZE_DB_DATABASE sur la base metier deja preparee.
+    Ne pas recreer le serveur PostgreSQL ni son volume.
 3. Construire et lancer le conteneur applicatif independant :
     ```sh
     docker compose --project-name yousummarize -f src/YouSummarize.Docker/docker-compose-light.yml --env-file src/.env up --build -d
@@ -98,18 +131,21 @@ deploiement de production n'a ete cree ou declenche pendant le split.
 ```sh
 dotnet build src/YouSummarize/YouSummarize.csproj
 dotnet publish src/YouSummarize/YouSummarize.csproj -c Release
-dotnet ef migrations has-pending-model-changes --project src/YouSummarize.Data --startup-project src/YouSummarize --no-build
+dotnet ef migrations has-pending-model-changes --context YouSummarizeDbContext --project src/YouSummarize.Data --startup-project src/YouSummarize --no-build
+dotnet run --project tests/YouSummarize.Data.Checks
 ```
 
-Le controle EF utilise la factory de conception et compare le modele au snapshot
-sans ouvrir de connexion. Les deux images Docker ont ete construites. Le
+Le controle EF compare le modele metier a son snapshot sans ouvrir de connexion.
+Le programme de checks verifie aussi le blocage des migrations Identity, la
+compatibilite des colonnes/cles/index et l'isolation de la migration initiale.
+Lors du split initial, les deux images Docker ont ete construites. Le
 demarrage YouSummarize et ses ressources statiques ont ete verifies dans un
 conteneur sans reseau avec une base fictive, puis ce conteneur a ete supprime.
 L'indisponibilite de cette base fictive produit des erreurs Data Protection
 attendues ; ce test ne valide pas l'authentification.
-Les parcours authentifies et la generation de resumes
-restent a verifier avec les services habituels : ils lisent ou ecrivent dans la
-base partagee et n'ont donc pas ete executes pendant le split.
+La connexion et une modification dans la nouvelle base ont ete confirmees
+localement par l'utilisateur. Les autres parcours, notamment la generation
+de resumes, restent a verifier avec les services habituels et les autorisations requises.
 
 
 ## Tips
